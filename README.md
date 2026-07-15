@@ -16,6 +16,13 @@ Every new app gets, regardless of flags:
 bin/new-rails-app my_app [options]
 ```
 
+`rails new` creates the app relative to your current working directory, not relative to this repo — `bin/new-rails-app` never changes directories. Run it from wherever you want `my_app/` to land, e.g. from this repo's parent directory to create `my_app` as a sibling of `rails-app-template`:
+
+```sh
+cd ..
+rails-app-template/bin/new-rails-app my_app [options]
+```
+
 | Flag | Values | Default |
 |---|---|---|
 | `--database` | any value `rails new --database` accepts (`sqlite3`, `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, `mariadb-trilogy`, ...) | `postgresql` |
