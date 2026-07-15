@@ -9,7 +9,7 @@ after_bundle do
   generate "devise:views"
 
   inject_into_file "config/environments/development.rb", after: "Rails.application.configure do\n" do
-    "  config.action_mailer.default_url_options = { host: \"localhost\", port: 3000 }\n"
+    "  config.action_mailer.default_url_options = { host: \"localhost\", port: ENV.fetch(\"PORT\", 3000) }\n"
   end
 
   application 'config.action_mailer.default_url_options = { host: "example.com" }', env: "production"

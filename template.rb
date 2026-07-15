@@ -24,6 +24,7 @@ VIEW_STYLE = case CSS
 create_file ".yarnrc.yml", "nodeLinker: node-modules\n", force: true
 
 apply "#{LIB}/db_create.rb"
+apply "#{LIB}/port.rb"
 apply "#{LIB}/pundit.rb"
 apply(AUTH == "devise" ? "#{LIB}/auth_devise.rb" : "#{LIB}/auth_clearance.rb")
 apply "#{LIB}/roles.rb"

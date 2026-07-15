@@ -42,6 +42,13 @@ after_bundle do
       bin/rails db:prepare
       ```
 
+      ## Port
+
+      The dev server binds to port 3000 by default. To use a different port
+      on this machine, set `PORT` in `.env` (gitignored — copy from
+      `.env.sample`, which is the committed template). `bin/dev` and the
+      development mailer's `default_url_options` both read it from there.
+
       ## Authorization
 
       - `ApplicationController` includes `Pundit::Authorization`; `Pundit::NotAuthorizedError` is rescued with a flash + redirect.
@@ -55,4 +62,13 @@ after_bundle do
       `bin/rails db:seed` creates an `admin@example.com` (admin role) and a `member@example.com` (member role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`.
     MARKDOWN
   end
+
+  say <<~MESSAGE, :green
+    #{app_title} is ready.
+
+        bin/dev
+
+    ...starts the app at http://localhost:3000 (set PORT in .env to use a
+    different port on this machine — see .env.sample).
+  MESSAGE
 end
