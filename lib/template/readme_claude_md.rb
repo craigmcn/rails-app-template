@@ -28,9 +28,18 @@ after_bundle do
 
       ## Setup
 
+      The database was already created, migrated, and seeded as the last
+      step of scaffolding. To start the app:
+
       ```sh
-      bin/setup          # install deps, create/migrate DB, seed
       bin/dev             # start the dev server (+ CSS/JS watchers if applicable)
+      ```
+
+      If `db:prepare` failed during scaffolding (e.g. the database server
+      wasn't running yet), finish that step by hand once it's reachable:
+
+      ```sh
+      bin/rails db:prepare
       ```
 
       ## Authorization
