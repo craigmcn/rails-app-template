@@ -23,6 +23,7 @@ VIEW_STYLE = case CSS
 # own --css/--javascript setup runs any `yarn` commands.
 create_file ".yarnrc.yml", "nodeLinker: node-modules\n", force: true
 
+apply "#{LIB}/db_create.rb"
 apply "#{LIB}/pundit.rb"
 apply(AUTH == "devise" ? "#{LIB}/auth_devise.rb" : "#{LIB}/auth_clearance.rb")
 apply "#{LIB}/roles.rb"
@@ -31,4 +32,5 @@ apply "#{LIB}/view_styles/#{VIEW_STYLE}.rb"
 apply(TEST == "rspec" ? "#{LIB}/test_rspec.rb" : "#{LIB}/test_minitest.rb")
 apply "#{LIB}/ci.rb"
 apply "#{LIB}/seeds.rb"
+apply "#{LIB}/db.rb"
 apply "#{LIB}/readme_claude_md.rb"
