@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+TEMPLATE_ROOT = File.expand_path("..", __dir__)
+TEMPLATE_FILE = File.join(TEMPLATE_ROOT, "template.rb")
+
+options = {
+  database: "postgresql",
+  css: "bootstrap",
+  javascript: "esbuild",
+  auth: "clearance",
+  test: "minitest",
+  skip_admin: false
+}
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: new-rails-app APP_NAME [options]"
+
+  opts.on("--database=DB", "Any value accepted by `rails new --database` (default: postgresql)") { |v| options[:database] = v }
+  opts.on("--css=CSS", "Any value accepted by `rails new --css` (default: bootstrap)") { |v| options[:css] = v }
+  opts.on("--javascript=JS", "Any value accepted by `rails new --javascript` (default: esbuild)") { |v| options[:javascript] = v }
+  opts.on("--auth=AUTH", %w[clearance devise], "clearance (default) or devise") { |v| options[:auth] = v }
+  opts.on("--test=TEST", %w[minitest rspec], "minitest (default) or rspec") { |v| options[:test] = v }
+  opts.on("--skip-admin", "Skip the /admin namespace UI (roles/authorization scaffolding is always included)") { options[:skip_admin] = true }
+  opts.on("-h", "--help", "Show this help") do
+    puts opts
+    exit
+  end
+end
+
+parser.parse!(ARGV)
+
+app_name = ARGV.shift
+if app_name.nil? || app_name.empty?
+  warn parser
+  exit 1
+end
+
+unless %w[clearance devise].include?(options[:auth])
+  warn "Invalid --auth: #{options[:auth]} (must be clearance or devise)"
+  exit 1
+end
+
+unless %w[minitest rspec].include?(options[:test])
+  warn "Invalid --test: #{options[:test]} (must be minitest or rspec)"
+  exit 1
+end
+
+env = {
+  "SCAFFOLD_AUTH" => options[:auth],
+  "SCAFFOLD_TEST" => options[:test],
+  "SCAFFOLD_SKIP_ADMIN" => options[:skip_admin].to_s,
+  "SCAFFOLD_CSS" => options[:css],
+  "SCAFFOLD_JAVASCRIPT" => options[:javascript],
+  "SCAFFOLD_DATABASE" => options[:database]
+}
+
+cmd = [
+  "rails", "new", app_name,
+  "--database=#{options[:database]}",
+  "--css=#{options[:css]}",
+  "--javascript=#{options[:javascript]}",
+  "-m", TEMPLATE_FILE
+]
+cmd << "--skip-test" if options[:test] == "rspec"
+
+puts "Running: #{cmd.join(" ")}"
+exec(env, *cmd)
