@@ -34,6 +34,8 @@ rails-app-template/bin/new-rails-app my_app [options]
 
 `--database`, `--css`, and `--javascript` are passed straight through to `rails new` unfiltered, so any value a given Rails version supports for those flags works here too — this tool doesn't hardcode or restrict the list.
 
+If you used `--skip-admin` and later want CRUD UI for a given model, you don't need to regenerate the app: `rails generate scaffold_controller ModelName field:type field:type ...` (matching the model's actual fields) adds a controller and views for an existing model without touching the model or its migration.
+
 Auth/admin/CSS view styling is fully hand-tuned for the default combination (`bootstrap` + `clearance`) and for `tailwind` + `devise`; other `--css` values (`bulma`, `postcss`, `sass`, none) fall back to plain, unstyled-but-functional markup rather than framework-specific classes.
 
 ### Examples
