@@ -27,6 +27,8 @@ after_bundle do
       RUBY
     end
 
+  indented_user_block = user_block.strip.each_line.map { |line| line == "\n" ? line : "  #{line}" }.join
+
   create_file "db/seeds.rb", force: true do
     <<~RUBY
       # Roles
@@ -34,8 +36,12 @@ after_bundle do
       Role.find_or_create_by!(name: "moderator")
       member_role = Role.find_or_create_by!(name: "member")
 
-      # Users
-      #{user_block.strip}
+      # Users — local (development/test) only. A production db:seed/db:prepare
+      # run (e.g. a first-deploy release phase) must never create these: the
+      # password is a well-known, publicly documented default.
+      if Rails.env.local?
+      #{indented_user_block}
+      end
     RUBY
   end
 end
