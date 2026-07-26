@@ -80,16 +80,25 @@ after_bundle do
     MARKDOWN
   end
 
-  say <<~MESSAGE, :green
-    #{app_title} is ready.
+  if @db_prepare_succeeded
+    say <<~MESSAGE, :green
+      #{app_title} is ready.
 
-        bin/dev
+          bin/dev
 
-    ...starts the app at http://localhost:3000 (set PORT in .env to use a
-    different port on this machine — see .env.sample).
+      ...starts the app at http://localhost:3000 (set PORT in .env to use a
+      different port on this machine — see .env.sample).
+    MESSAGE
+  else
+    say <<~MESSAGE, :yellow
+      #{app_title} was scaffolded, but db:prepare failed above — fix that
+      first (see the red message above and README.md > Troubleshooting),
+      then run:
 
-    Note: db/seeds.rb creates admin@example.com / member@example.com with a
-    well-known default password, guarded to development/test only — remove
-    or change them before any real users sign up.
-  MESSAGE
+          bin/dev
+
+      ...to start the app at http://localhost:3000 (set PORT in .env to use
+      a different port on this machine — see .env.sample).
+    MESSAGE
+  end
 end

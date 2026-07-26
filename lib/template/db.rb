@@ -10,7 +10,9 @@
 # the one remaining step by hand. See README.md > Troubleshooting.
 
 after_bundle do
-  unless rails_command("db:prepare", capture: false)
+  @db_prepare_succeeded = rails_command("db:prepare", capture: false)
+
+  unless @db_prepare_succeeded
     say <<~MESSAGE, :red
       db:prepare failed — the app was scaffolded successfully, but the
       database wasn't created/migrated/seeded (see the error above). This is
