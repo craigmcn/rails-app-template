@@ -76,7 +76,7 @@ after_bundle do
 
       ## Seeded users
 
-      `bin/rails db:seed` creates an `admin@example.com` (admin role) and a `member@example.com` (member role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`.
+      In development/test only (`Rails.env.local?`), `bin/rails db:seed` creates an `admin@example.com` (admin role) and a `member@example.com` (member role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`. This is a well-known, publicly documented password — the guard exists so a production `db:seed`/`db:prepare` run can never create these accounts. Remove or change them before any real users sign up.
     MARKDOWN
   end
 
