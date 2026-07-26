@@ -7,6 +7,10 @@
 # the args hash it accepts — is validated via dry-schema.
 
 test = ENV.fetch("SCAFFOLD_TEST", "minitest")
+test_dir = test == "rspec" ? "spec" : "test"
+test_template = test == "rspec" ? "service_spec.rb.tt" : "service_test.rb.tt"
+test_suffix = test == "rspec" ? "_spec" : "_test"
+test_example_path = test == "rspec" ? "spec/services/authentication/create_session_spec.rb" : "test/services/authentication/create_session_test.rb"
 
 gem "dry-schema"
 
@@ -30,8 +34,9 @@ after_bundle do
         end
 
         def self.call(args = {}, deps = {})
-          validate!(args)
-          effective_instance(args, deps).call(args, deps)
+          instance = effective_instance(args, deps)
+          validate!(args) if instance.instance_of?(self)
+          instance.call(args, deps)
         end
 
         # Defines this service's dry-schema argument validation. Usage:
@@ -51,6 +56,12 @@ after_bundle do
 
         # Lets tests override a nested service call, e.g.
         #   Authentication::CreateSession.call(args, "Authentication::FindUser" => ->(args, _deps) { ... })
+        #
+        # For an override to reach a nested call, the calling service's own
+        # #call must forward its `deps` argument to that nested `.call` —
+        # an override only takes effect at the level it's passed to.
+        # Overriding a class this way also skips that class's own
+        # validate!, since the override replaces its behavior entirely.
         def self.effective_instance(args, deps)
           deps[name] || deps[name.to_sym] || new(args, deps)
         end
@@ -82,7 +93,7 @@ after_bundle do
 
           This will create:
               app/services/authentication/create_session.rb
-              #{test == "rspec" ? "spec/services/authentication/create_session_spec.rb" : "test/services/authentication/create_session_test.rb"}
+              #{test_example_path}
     USAGE
   end
 
@@ -96,7 +107,8 @@ after_bundle do
         end
 
         def create_test_file
-          template "#{test == "rspec" ? "service_spec.rb.tt" : "service_test.rb.tt"}", File.join("#{test == "rspec" ? "spec" : "test"}/services", class_path, "\#{file_name}#{test == "rspec" ? "_spec" : "_test"}.rb")
+          test_path = File.join("#{test_dir}/services", class_path, "\#{file_name}#{test_suffix}.rb")
+          template "#{test_template}", test_path
         end
       end
     RUBY
@@ -113,7 +125,8 @@ after_bundle do
         # end
 
         # @param args [Hash]
-        # @param deps [Hash] service-name => override, used to stub nested calls in tests
+        # @param deps [Hash] service-name => override, used to stub nested calls in
+        #   tests — forward `deps` to any nested `.call` so overrides reach it
         def call(args, deps)
           failure!("<%= class_name %>\#call is not yet implemented")
         end
