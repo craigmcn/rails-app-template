@@ -29,6 +29,7 @@ apply "#{LIB}/pundit.rb"
 apply(AUTH == "devise" ? "#{LIB}/auth_devise.rb" : "#{LIB}/auth_clearance.rb")
 apply "#{LIB}/roles.rb"
 apply "#{LIB}/admin.rb" unless SKIP_ADMIN
+apply "#{LIB}/services.rb"
 apply "#{LIB}/view_styles/#{VIEW_STYLE}.rb"
 apply(TEST == "rspec" ? "#{LIB}/test_rspec.rb" : "#{LIB}/test_minitest.rb")
 apply "#{LIB}/ci.rb"

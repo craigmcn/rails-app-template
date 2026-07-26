@@ -57,6 +57,23 @@ after_bundle do
       - New users get the `member` role automatically (`User#assign_default_role`).
       - `/admin` is namespaced behind `Admin::BaseController#require_moderator_or_above`; `Admin::UsersController` (admin-only) manages role assignments.
 
+      ## Services
+
+      Business/orchestration logic lives in `app/services/`, one flat layer
+      of `ApplicationService` subclasses (no separate "actions" layer) —
+      controllers call services directly, and services may call each other.
+      Authorization stays in the controller (Pundit policies); a service's
+      own argument shape is validated via a `dry-schema` `SCHEMA` constant.
+
+      ```sh
+      bin/rails generate service Authentication::CreateSession
+      ```
+
+      generates `app/services/authentication/create_session.rb` plus a
+      matching #{test == "rspec" ? "spec/services/.../..._spec.rb" : "test/services/.../..._test.rb"}.
+      Nested service calls can be stubbed in tests via the `deps` hash
+      (`SomeService.call(args, "Other::Service" => ->(args, _deps) { ... })`).
+
       ## Seeded users
 
       `bin/rails db:seed` creates an `admin@example.com` (admin role) and a `member@example.com` (member role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`.
