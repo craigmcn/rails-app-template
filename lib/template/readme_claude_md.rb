@@ -80,12 +80,25 @@ after_bundle do
     MARKDOWN
   end
 
-  say <<~MESSAGE, :green
-    #{app_title} is ready.
+  if @db_prepare_succeeded
+    say <<~MESSAGE, :green
+      #{app_title} is ready.
 
-        bin/dev
+          bin/dev
 
-    ...starts the app at http://localhost:3000 (set PORT in .env to use a
-    different port on this machine — see .env.sample).
-  MESSAGE
+      ...starts the app at http://localhost:3000 (set PORT in .env to use a
+      different port on this machine — see .env.sample).
+    MESSAGE
+  else
+    say <<~MESSAGE, :yellow
+      #{app_title} was scaffolded, but db:prepare failed above — fix that
+      first (see the red message above and README.md > Troubleshooting),
+      then run:
+
+          bin/dev
+
+      ...to start the app at http://localhost:3000 (set PORT in .env to use
+      a different port on this machine — see .env.sample).
+    MESSAGE
+  end
 end
