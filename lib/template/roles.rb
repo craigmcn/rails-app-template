@@ -56,15 +56,15 @@ after_bundle do
     <<~RUBY.gsub(/^(?=.)/, "  ")
 
       def admin?
-        roles.exists?(name: "admin")
+        has_role?("admin")
       end
 
       def moderator?
-        roles.exists?(name: "moderator")
+        has_role?("moderator")
       end
 
       def member?
-        !admin? && !moderator?
+        has_role?("member")
       end
 
       def moderator_or_above?
@@ -79,6 +79,13 @@ after_bundle do
       end
 
       private
+
+      # roles.any? { ... } reuses an already-preloaded `roles` association
+      # (e.g. via User.includes(:roles)) instead of issuing a fresh query
+      # per call the way roles.exists?(name: ...) would.
+      def has_role?(name)
+        roles.any? { |role| role.name == name }
+      end
 
       def assign_default_role
         member_role = Role.find_by(name: "member")

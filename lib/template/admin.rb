@@ -32,11 +32,16 @@ after_bundle do
   create_file "app/controllers/admin/users_controller.rb" do
     <<~RUBY
       class Admin::UsersController < Admin::BaseController
+        PER_PAGE = 50
+
         before_action :require_admin
-        before_action :set_user, only: [:edit, :update]
+        before_action :set_user, only: [ :edit, :update ]
 
         def index
-          @users = User.all.order(:email)
+          page = [ params[:page].to_i, 1 ].max
+          @users = User.includes(:roles).order(:email).offset((page - 1) * PER_PAGE).limit(PER_PAGE)
+          @page = page
+          @total_pages = (User.count / PER_PAGE.to_f).ceil
         end
 
         def edit
@@ -44,6 +49,11 @@ after_bundle do
 
         def update
           role_names = Array(params.dig(:user, :role_names)).reject(&:blank?)
+
+          if @user.admin? && !role_names.include?("admin") && last_admin?(@user)
+            return redirect_to admin_users_path, alert: "Can't remove the last admin's admin role."
+          end
+
           @user.roles = Role.where(name: role_names)
 
           if @user.save
@@ -57,6 +67,10 @@ after_bundle do
 
         def set_user
           @user = User.find(params[:id])
+        end
+
+        def last_admin?(user)
+          User.joins(:roles).where(roles: { name: "admin" }).where.not(id: user.id).none?
         end
       end
     RUBY
@@ -77,6 +91,18 @@ after_bundle do
           <li><%= link_to user.email, edit_admin_user_path(user) %> (<%= user.primary_role %>)</li>
         <% end %>
       </ul>
+
+      <% if @total_pages > 1 %>
+        <nav>
+          <% (1..@total_pages).each do |page_number| %>
+            <% if page_number == @page %>
+              <strong><%= page_number %></strong>
+            <% else %>
+              <%= link_to page_number, admin_users_path(page: page_number) %>
+            <% end %>
+          <% end %>
+        </nav>
+      <% end %>
     ERB
   end
 
