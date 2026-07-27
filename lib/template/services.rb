@@ -12,7 +12,11 @@ test_template = test == "rspec" ? "service_spec.rb.tt" : "service_test.rb.tt"
 test_suffix = test == "rspec" ? "_spec" : "_test"
 test_example_path = test == "rspec" ? "spec/services/authentication/create_session_spec.rb" : "test/services/authentication/create_session_test.rb"
 
-gem "dry-schema"
+# Pinned tighter (major+minor, not just major) than the template's other
+# added gems — dry-rb gems don't always treat a minor bump as strictly
+# backward-compatible the way most semver gems do, and this is the newest,
+# least battle-tested dependency in the stack (see rails-app-template#11).
+gem "dry-schema", "~> 1.16"
 
 after_bundle do
   # lib/generators/service/service_generator.rb (created below) defines a

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 # Applied by template.rb — always runs regardless of chosen options.
 
-gem "pundit"
+gem "pundit", "~> 2.0"
 
 after_bundle do
   generate "pundit:install"
