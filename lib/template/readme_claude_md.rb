@@ -81,7 +81,7 @@ after_bundle do
 
         ## Before deploying to production
 
-        `config/environments/production.rb` sets `config.action_mailer.default_url_options = { host: "example.com" }` — a placeholder from Devise's install generator. Confirmation/password-reset emails will link to `example.com` until this is changed to the app's real production host.
+        `config/environments/production.rb` reads the mailer's host from `ENV.fetch("HOST", "example.com")`. Set `HOST` to the app's real production domain via whatever env var mechanism the production platform uses (Heroku config vars, Kamal secrets, systemd environment, etc.) — **not** `.env`/`.env.sample`, which are dev-only and never loaded in production. Until `HOST` is set there, confirmation/password-reset emails will link to `example.com`.
       DEVISE_MAILER
     MARKDOWN
   end
@@ -110,11 +110,12 @@ after_bundle do
 
   if auth == "devise"
     say <<~MESSAGE, :yellow
-      Before deploying to production: config/environments/production.rb has
-      config.action_mailer.default_url_options = { host: "example.com" }
-      (Devise's install generator placeholder) — confirmation/password-reset
-      emails will link to example.com until this is changed to the app's
-      real production host.
+      Before deploying to production: set the HOST environment variable to
+      the app's real production domain, via whatever mechanism your
+      production platform uses for env vars (not .env/.env.sample — those
+      are dev-only and never loaded in production). Until HOST is set
+      there, config/environments/production.rb falls back to "example.com"
+      for confirmation/password-reset email links.
     MESSAGE
   end
 end
