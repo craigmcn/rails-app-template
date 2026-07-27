@@ -77,6 +77,12 @@ after_bundle do
       ## Seeded users
 
       In development/test only (`Rails.env.local?`), `bin/rails db:seed` creates an `admin@example.com` (admin role) and a `member@example.com` (member role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`. This is a well-known, publicly documented password — the guard exists so a production `db:seed`/`db:prepare` run can never create these accounts. Remove or change them before any real users sign up.
+      #{auth == "devise" ? <<~DEVISE_MAILER : ""}
+
+        ## Before deploying to production
+
+        `config/environments/production.rb` reads the mailer's host from `ENV.fetch("HOST", "example.com")`. Set `HOST` to the app's real production domain via whatever env var mechanism the production platform uses (Heroku config vars, Kamal secrets, systemd environment, etc.) — **not** `.env`/`.env.sample`, which are dev-only and never loaded in production. Until `HOST` is set there, confirmation/password-reset emails will link to `example.com`.
+      DEVISE_MAILER
     MARKDOWN
   end
 
@@ -99,6 +105,17 @@ after_bundle do
 
       ...to start the app at http://localhost:3000 (set PORT in .env to use
       a different port on this machine — see .env.sample).
+    MESSAGE
+  end
+
+  if auth == "devise"
+    say <<~MESSAGE, :yellow
+      Before deploying to production: set the HOST environment variable to
+      the app's real production domain, via whatever mechanism your
+      production platform uses for env vars (not .env/.env.sample — those
+      are dev-only and never loaded in production). Until HOST is set
+      there, config/environments/production.rb falls back to "example.com"
+      for confirmation/password-reset email links.
     MESSAGE
   end
 end

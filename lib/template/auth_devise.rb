@@ -18,7 +18,30 @@ after_bundle do
     "  config.action_mailer.default_url_options = { host: \"localhost\", port: ENV.fetch(\"PORT\", 3000) }\n"
   end
 
-  application 'config.action_mailer.default_url_options = { host: "example.com" }', env: "production"
+  # Rails' own config/environments/production.rb already has this exact
+  # line (its own stock default_url_options, generated before this template
+  # ever runs) — gsub_file it in place rather than appending a second one
+  # via `application`, which would leave Rails' hardcoded line executing
+  # last and silently overriding this. Falls back to "example.com" (Devise's
+  # own install-generator default) so the app still boots without HOST set,
+  # but a real deploy should set it via whatever mechanism the production
+  # platform actually uses for env vars (Heroku config vars, Kamal secrets,
+  # systemd environment, etc.) — not .env/.env.sample, which are dev-only
+  # and never loaded in production (see ci.rb's dotenv-rails gem_group).
+  production_mailer_default = 'config.action_mailer.default_url_options = { host: "example.com" }'
+  production_mailer_patched = 'config.action_mailer.default_url_options = { host: ENV.fetch("HOST", "example.com") }'
+
+  gsub_file "config/environments/production.rb", production_mailer_default, production_mailer_patched
+
+  unless File.read("config/environments/production.rb").include?(production_mailer_patched)
+    say <<~MESSAGE, :red
+      Couldn't confirm config/environments/production.rb's
+      default_url_options was patched to read HOST (the expected hardcoded
+      `host: "example.com"` line wasn't found). Production mailer links will
+      keep pointing at example.com regardless of a HOST env var. See
+      lib/template/auth_devise.rb and patch it by hand.
+    MESSAGE
+  end
 
   inject_into_class "app/models/user.rb", "User" do
     "  validates :email, presence: true, uniqueness: true\n"
