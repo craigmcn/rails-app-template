@@ -77,6 +77,12 @@ after_bundle do
       ## Seeded users
 
       In development/test only (`Rails.env.local?`), `bin/rails db:seed` creates an `admin@example.com` (admin role) and a `member@example.com` (member role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`. This is a well-known, publicly documented password — the guard exists so a production `db:seed`/`db:prepare` run can never create these accounts. Remove or change them before any real users sign up.
+      #{auth == "devise" ? <<~DEVISE_MAILER : ""}
+
+        ## Before deploying to production
+
+        `config/environments/production.rb` sets `config.action_mailer.default_url_options = { host: "example.com" }` — a placeholder from Devise's install generator. Confirmation/password-reset emails will link to `example.com` until this is changed to the app's real production host.
+      DEVISE_MAILER
     MARKDOWN
   end
 
@@ -99,6 +105,16 @@ after_bundle do
 
       ...to start the app at http://localhost:3000 (set PORT in .env to use
       a different port on this machine — see .env.sample).
+    MESSAGE
+  end
+
+  if auth == "devise"
+    say <<~MESSAGE, :yellow
+      Before deploying to production: config/environments/production.rb has
+      config.action_mailer.default_url_options = { host: "example.com" }
+      (Devise's install generator placeholder) — confirmation/password-reset
+      emails will link to example.com until this is changed to the app's
+      real production host.
     MESSAGE
   end
 end
