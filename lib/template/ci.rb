@@ -10,4 +10,20 @@ end
 
 gem_group :development do
   gem "letter_opener"
+  gem "bullet"
+end
+
+after_bundle do
+  inject_into_file "config/environments/development.rb", after: "Rails.application.configure do\n" do
+    <<~RUBY
+      config.after_initialize do
+        Bullet.enable = true
+        Bullet.bullet_logger = true
+        Bullet.console = true
+        Bullet.rails_logger = true
+        Bullet.add_footer = true
+      end
+
+    RUBY
+  end
 end
