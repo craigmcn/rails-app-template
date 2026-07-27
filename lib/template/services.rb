@@ -15,6 +15,28 @@ test_example_path = test == "rspec" ? "spec/services/authentication/create_sessi
 gem "dry-schema"
 
 after_bundle do
+  # lib/generators/service/service_generator.rb (created below) defines a
+  # plain, unnamespaced ServiceGenerator, per Rails' own generator
+  # convention — but Rails 7.1+'s default config.autoload_lib(ignore: %w[
+  # assets tasks]) hands `lib/generators` to Zeitwerk too, which eager-loads
+  # it in production and expects a namespaced Generators::Service::
+  # ServiceGenerator constant instead, crashing production boot entirely.
+  # Rails' own generator lookup already loads generator files on demand, so
+  # Zeitwerk should never manage this directory.
+  gsub_file "config/application.rb",
+    "config.autoload_lib(ignore: %w[assets tasks])",
+    'config.autoload_lib(ignore: %w[assets tasks generators])'
+
+  unless File.read("config/application.rb").include?('config.autoload_lib(ignore: %w[assets tasks generators])')
+    say <<~MESSAGE, :red
+      Couldn't confirm config/application.rb's autoload_lib was patched to
+      ignore lib/generators — the expected `config.autoload_lib(ignore: %w[
+      assets tasks])` line wasn't found. Without this, the app will crash on
+      boot under RAILS_ENV=production (or anywhere eager loading is on). See
+      lib/template/services.rb and patch it by hand.
+    MESSAGE
+  end
+
   create_file "app/services/application_service.rb" do
     <<~RUBY
       # Base class for service objects: single-purpose units of business
@@ -99,6 +121,8 @@ after_bundle do
 
   create_file "lib/generators/service/service_generator.rb" do
     <<~RUBY
+      require "rails/generators"
+
       class ServiceGenerator < Rails::Generators::NamedBase
         source_root File.expand_path("templates", __dir__)
 
