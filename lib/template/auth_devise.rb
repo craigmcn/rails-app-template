@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 # Applied by template.rb when SCAFFOLD_AUTH=devise.
 
-gem "devise"
+gem "devise", "~> 5.0"
 
 after_bundle do
   generate "devise:install"

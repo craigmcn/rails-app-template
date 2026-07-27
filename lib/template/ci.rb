@@ -5,12 +5,12 @@
 # to the Gemfile, so this only layers on a few extra dev conveniences.
 
 gem_group :development, :test do
-  gem "dotenv-rails"
+  gem "dotenv-rails", "~> 3.0"
 end
 
 gem_group :development do
-  gem "letter_opener"
-  gem "bullet"
+  gem "letter_opener", "~> 1.0"
+  gem "bullet", "~> 8.0"
 end
 
 after_bundle do
