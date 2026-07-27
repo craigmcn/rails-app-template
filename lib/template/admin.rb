@@ -1,6 +1,18 @@
 # frozen_string_literal: true
 # Applied by template.rb unless --skip-admin was passed.
 
+auth = ENV.fetch("SCAFFOLD_AUTH", "clearance")
+test = ENV.fetch("SCAFFOLD_TEST", "minitest")
+
+# Clearance's global `before_action :require_login` (added in
+# auth_clearance.rb) runs before Admin::BaseController's own gate, so an
+# anonymous request never reaches it and gets redirected to sign in instead.
+# Devise doesn't add an equivalent global filter, so anonymous requests do
+# reach require_moderator_or_above, where current_user is nil and the
+# response is a plain 403.
+anonymous_status = auth == "devise" ? "forbidden" : "redirect"
+anonymous_verb = auth == "devise" ? "forbids" : "redirects"
+
 after_bundle do
   create_file "app/controllers/admin/base_controller.rb" do
     <<~RUBY
@@ -128,4 +140,153 @@ after_bundle do
       resources :users, only: [:index, :edit, :update]
     end
   RUBY
+
+  if test == "rspec"
+    create_file "spec/requests/admin/dashboard_spec.rb" do
+      <<~RUBY
+        require "rails_helper"
+
+        RSpec.describe "Admin::Dashboard", type: :request do
+          it "forbids a member" do
+            sign_in_as(create(:user))
+            get admin_root_path
+            expect(response).to have_http_status(:forbidden)
+          end
+
+          it "allows a moderator" do
+            sign_in_as(create(:user, :moderator))
+            get admin_root_path
+            expect(response).to have_http_status(:success)
+          end
+
+          it "allows an admin" do
+            sign_in_as(create(:user, :admin))
+            get admin_root_path
+            expect(response).to have_http_status(:success)
+          end
+
+          it "#{anonymous_verb} an anonymous request" do
+            get admin_root_path
+            expect(response).to have_http_status(:#{anonymous_status})
+          end
+        end
+      RUBY
+    end
+
+    create_file "spec/requests/admin/users_spec.rb" do
+      <<~RUBY
+        require "rails_helper"
+
+        RSpec.describe "Admin::Users", type: :request do
+          it "forbids a moderator from the users index" do
+            sign_in_as(create(:user, :moderator))
+            get admin_users_path
+            expect(response).to have_http_status(:forbidden)
+          end
+
+          it "allows an admin to access the users index" do
+            sign_in_as(create(:user, :admin))
+            get admin_users_path
+            expect(response).to have_http_status(:success)
+          end
+
+          it "persists a role assignment made by an admin" do
+            sign_in_as(create(:user, :admin))
+            member = create(:user)
+            create(:role, :moderator)
+
+            patch admin_user_path(member), params: { user: { role_names: [ "moderator" ] } }
+
+            expect(response).to redirect_to(admin_users_path)
+            member.reload
+            expect(member.moderator?).to be true
+            expect(member.member?).to be false
+          end
+
+          it "cannot remove the last admin's admin role" do
+            admin = create(:user, :admin)
+            sign_in_as(admin)
+
+            patch admin_user_path(admin), params: { user: { role_names: [ "member" ] } }
+
+            expect(response).to redirect_to(admin_users_path)
+            expect(admin.reload.admin?).to be true
+          end
+        end
+      RUBY
+    end
+  else
+    create_file "test/controllers/admin/dashboard_controller_test.rb" do
+      <<~RUBY
+        require "test_helper"
+
+        class Admin::DashboardControllerTest < ActionDispatch::IntegrationTest
+          test "forbids a member" do
+            sign_in_as(users(:member))
+            get admin_root_path
+            assert_response :forbidden
+          end
+
+          test "allows a moderator" do
+            sign_in_as(users(:moderator))
+            get admin_root_path
+            assert_response :success
+          end
+
+          test "allows an admin" do
+            sign_in_as(users(:admin))
+            get admin_root_path
+            assert_response :success
+          end
+
+          test "#{anonymous_verb} an anonymous request" do
+            get admin_root_path
+            assert_response :#{anonymous_status}
+          end
+        end
+      RUBY
+    end
+
+    create_file "test/controllers/admin/users_controller_test.rb" do
+      <<~RUBY
+        require "test_helper"
+
+        class Admin::UsersControllerTest < ActionDispatch::IntegrationTest
+          test "forbids a moderator from the users index" do
+            sign_in_as(users(:moderator))
+            get admin_users_path
+            assert_response :forbidden
+          end
+
+          test "allows an admin to access the users index" do
+            sign_in_as(users(:admin))
+            get admin_users_path
+            assert_response :success
+          end
+
+          test "persists a role assignment made by an admin" do
+            sign_in_as(users(:admin))
+            member = users(:member)
+
+            patch admin_user_path(member), params: { user: { role_names: [ "moderator" ] } }
+
+            assert_redirected_to admin_users_path
+            member.reload
+            assert member.moderator?
+            refute member.member?
+          end
+
+          test "cannot remove the last admin's admin role" do
+            admin = users(:admin)
+            sign_in_as(admin)
+
+            patch admin_user_path(admin), params: { user: { role_names: [ "member" ] } }
+
+            assert_redirected_to admin_users_path
+            assert admin.reload.admin?
+          end
+        end
+      RUBY
+    end
+  end
 end
