@@ -17,6 +17,16 @@ create_file ".env", <<~ENV
   PORT=3000
 ENV
 
+# Rails' own generated .gitignore has `/.env*`, which also matches
+# .env.sample — meaning the "committed template" .env.sample documents
+# above would never actually reach the repo. Un-ignore just that one file.
+append_to_file ".gitignore", <<~GITIGNORE
+
+  # .env.sample is the committed template for .env — un-ignore it despite
+  # the /.env* rule above.
+  !/.env.sample
+GITIGNORE
+
 after_bundle do
   # bin/dev runs `foreman start ... --env /dev/null`, deliberately telling
   # foreman not to load .env itself (Rails already loads it once, inside the
