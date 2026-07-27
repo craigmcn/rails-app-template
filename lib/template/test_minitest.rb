@@ -20,20 +20,48 @@ after_bundle do
     YAML
   end
 
+  # `generate model RoleAssignment` (in roles.rb) auto-generates a stub
+  # test/fixtures/role_assignments.yml referencing labels ("user: one",
+  # "role: one") that don't exist in the roles.yml/users.yml fixtures
+  # above — `fixtures :all` fails with a foreign key violation unless this
+  # is overwritten to reference labels that actually exist.
+  create_file "test/fixtures/role_assignments.yml", force: true do
+    <<~YAML
+      member:
+        user: member
+        role: member
+
+      moderator:
+        user: moderator
+        role: moderator
+
+      admin:
+        user: admin
+        role: admin
+    YAML
+  end
+
   if auth == "clearance"
+    # Fixtures are inserted directly via SQL and bypass ActiveRecord
+    # callbacks entirely, including Clearance's before_create that normally
+    # generates remember_token — so it has to be set explicitly here, or
+    # `fixtures :all` raises a NOT NULL violation on that column.
     create_file "test/fixtures/users.yml", force: true do
       <<~YAML
         member:
           email: member@example.com
           encrypted_password: <%= BCrypt::Password.create(User::DEFAULT_PASSWORD, cost: BCrypt::Engine::MIN_COST) %>
+          remember_token: <%= Clearance::Token.new %>
 
         moderator:
           email: moderator@example.com
           encrypted_password: <%= BCrypt::Password.create(User::DEFAULT_PASSWORD, cost: BCrypt::Engine::MIN_COST) %>
+          remember_token: <%= Clearance::Token.new %>
 
         admin:
           email: admin@example.com
           encrypted_password: <%= BCrypt::Password.create(User::DEFAULT_PASSWORD, cost: BCrypt::Engine::MIN_COST) %>
+          remember_token: <%= Clearance::Token.new %>
       YAML
     end
 
