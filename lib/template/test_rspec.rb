@@ -64,14 +64,15 @@ after_bundle do
       <<~RUBY
         config.include FactoryBot::Syntax::Methods
 
-        config.before(:each, type: :request) do |example|
-          next unless example.metadata[:as]
-
-          user = example.metadata[:as]
-          token = SecureRandom.hex(20)
-          user.update_columns(remember_token: token)
-          cookies[Clearance.configuration.cookie_name] = token
+        module SignInHelper
+          def sign_in_as(user)
+            token = SecureRandom.hex(20)
+            user.update_columns(remember_token: token)
+            cookies[Clearance.configuration.cookie_name] = token
+          end
         end
+
+        config.include SignInHelper, type: :request
       RUBY
     end
   else
@@ -99,6 +100,14 @@ after_bundle do
         config.include FactoryBot::Syntax::Methods
         config.include Warden::Test::Helpers
         config.include Devise::Test::IntegrationHelpers, type: :request
+
+        module SignInHelper
+          def sign_in_as(user)
+            sign_in(user, scope: :user)
+          end
+        end
+
+        config.include SignInHelper, type: :request
 
         config.before(:suite) { Warden.test_mode! }
         config.after(:each) { Warden.test_reset! }
