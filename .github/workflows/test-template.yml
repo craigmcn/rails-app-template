@@ -1,0 +1,105 @@
+name: Test template
+
+# Verifies rails-app-template itself (not a generated app's own CI, which
+# each scaffolded app already gets from `rails new`). Scaffolds a small
+# matrix of representative flag combinations and asserts each one boots
+# cleanly in development, boots cleanly in production with eager loading on
+# (the specific check that would have caught the lib/generators eager-load
+# crash — see #12), and passes its own generated test suite.
+#
+# All matrix legs use --database=sqlite3 except "defaults", which uses the
+# real default (postgresql) via the postgres service below — that's the
+# combination db_create.rb exists for (Clearance's/Devise's install
+# generators query the database directly while generating). Other database
+# adapters (mysql/trilogy/mariadb), and other --css/--javascript values, are
+# intentionally not covered here — see #13.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  scaffold-matrix:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: defaults
+            database: postgresql
+            extra_args: ""
+          - name: devise-tailwind
+            database: sqlite3
+            extra_args: "--auth=devise --css=tailwind"
+          - name: rspec
+            database: sqlite3
+            extra_args: "--test=rspec"
+          - name: skip-admin-importmap
+            database: sqlite3
+            extra_args: "--javascript=importmap --skip-admin"
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout rails-app-template
+        uses: actions/checkout@v4
+        with:
+          path: rails-app-template
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Install Rails
+        run: gem install rails --no-document
+
+      - name: Scaffold app (${{ matrix.name }})
+        run: >-
+          rails-app-template/bin/new-rails-app scaffold_app
+          --database=${{ matrix.database }}
+          ${{ matrix.extra_args }}
+
+      - name: Boot in development
+        working-directory: scaffold_app
+        run: bin/rails runner 'puts "development boot ok"'
+
+      - name: Boot in production (eager loading)
+        working-directory: scaffold_app
+        env:
+          RAILS_ENV: production
+          SECRET_KEY_BASE: dummy
+        run: bin/rails runner 'puts "production boot ok"'
+
+      - name: Run generated test suite
+        working-directory: scaffold_app
+        run: |
+          if [ -d spec ]; then
+            bundle exec rspec
+          else
+            bin/rails test
+          fi
