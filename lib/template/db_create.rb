@@ -7,5 +7,21 @@
 # database already exists).
 
 after_bundle do
-  rails_command "db:create", capture: false
+  @db_create_succeeded = rails_command "db:create", capture: false
+
+  unless @db_create_succeeded
+    say <<~MESSAGE, :red
+      db:create failed (see the error above) — the auth generators that run
+      next (Clearance/Devise) query the database directly while
+      generating, so they're likely to fail too. This is almost always a
+      local database server issue. Once the database is reachable, you can
+      re-run this generator, or finish setup by hand with:
+
+          bin/rails db:create
+          bin/rails db:prepare
+
+      See README.md > Troubleshooting in this template's repo for common
+      causes and fixes.
+    MESSAGE
+  end
 end
