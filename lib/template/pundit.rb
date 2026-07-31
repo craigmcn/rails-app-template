@@ -10,6 +10,15 @@ after_bundle do
     "  include Pundit::Authorization\n\n"
   end
 
+  unless File.read("app/controllers/application_controller.rb").include?("include Pundit::Authorization")
+    say <<~MESSAGE, :red
+      Couldn't confirm Pundit::Authorization was included in
+      ApplicationController (the expected `class ApplicationController`
+      anchor wasn't found). Pundit policies won't be usable until this is
+      added by hand. See lib/template/pundit.rb.
+    MESSAGE
+  end
+
   inject_into_file "app/controllers/application_controller.rb", before: /^end\n/ do
     <<~RUBY.gsub(/^(?=.)/, "  ")
 
@@ -22,5 +31,14 @@ after_bundle do
         redirect_back fallback_location: root_path
       end
     RUBY
+  end
+
+  unless File.read("app/controllers/application_controller.rb").include?("rescue_from Pundit::NotAuthorizedError")
+    say <<~MESSAGE, :red
+      Couldn't confirm the Pundit::NotAuthorizedError rescue_from handler
+      was added to ApplicationController (the expected `before: /^end\\n/`
+      anchor wasn't found). Unauthorized Pundit actions will raise instead
+      of redirecting with a flash message. See lib/template/pundit.rb.
+    MESSAGE
   end
 end
