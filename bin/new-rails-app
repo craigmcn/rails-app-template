@@ -30,21 +30,17 @@ parser = OptionParser.new do |opts|
   end
 end
 
-parser.parse!(ARGV)
-
-app_name = ARGV.shift
-if app_name.nil? || app_name.empty?
+begin
+  parser.parse!(ARGV)
+rescue OptionParser::ParseError => e
+  warn e.message
   warn parser
   exit 1
 end
 
-unless %w[clearance devise].include?(options[:auth])
-  warn "Invalid --auth: #{options[:auth]} (must be clearance or devise)"
-  exit 1
-end
-
-unless %w[minitest rspec].include?(options[:test])
-  warn "Invalid --test: #{options[:test]} (must be minitest or rspec)"
+app_name = ARGV.shift
+if app_name.nil? || app_name.empty?
+  warn parser
   exit 1
 end
 
