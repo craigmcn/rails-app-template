@@ -60,7 +60,7 @@ after_bundle do
         end
 
         def update
-          role_names = Array(params.dig(:user, :role_names)).reject(&:blank?)
+          role_names = user_params.fetch(:role_names, []).reject(&:blank?)
 
           if @user.admin? && !role_names.include?("admin") && last_admin?(@user)
             return redirect_to admin_users_path, alert: "Can't remove the last admin's admin role."
@@ -79,6 +79,10 @@ after_bundle do
 
         def set_user
           @user = User.find(params[:id])
+        end
+
+        def user_params
+          params.require(:user).permit(role_names: [])
         end
 
         def last_admin?(user)
