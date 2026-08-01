@@ -39,7 +39,14 @@ after_bundle do
       # Users — local (development/test) only. A production db:seed/db:prepare
       # run (e.g. a first-deploy release phase) must never create these: the
       # password is a well-known, publicly documented default.
-      if Rails.env.local?
+      #
+      # Rails.env.local? already excludes production today, but the
+      # `&& !Rails.env.production?` below is intentionally redundant: it's
+      # a second, independent check so that if this guard is ever loosened
+      # (e.g. broadened to include a future custom environment) by a later
+      # edit, account creation with a known password still can't reach a
+      # production database on its own.
+      if Rails.env.local? && !Rails.env.production?
       #{indented_user_block}
       end
     RUBY
