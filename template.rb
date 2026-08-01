@@ -23,6 +23,7 @@ VIEW_STYLE = case CSS
 # own --css/--javascript setup runs any `yarn` commands.
 create_file ".yarnrc.yml", "nodeLinker: node-modules\n", force: true
 
+apply "#{LIB}/support.rb"
 apply "#{LIB}/db_create.rb"
 apply "#{LIB}/port.rb"
 apply "#{LIB}/pundit.rb"
