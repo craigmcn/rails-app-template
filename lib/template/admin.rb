@@ -61,17 +61,27 @@ after_bundle do
 
         def update
           role_names = user_params.fetch(:role_names, []).reject(&:blank?)
+          demoting_admin = @user.admin? && !role_names.include?("admin")
 
-          if @user.admin? && !role_names.include?("admin") && last_admin?(@user)
-            return redirect_to admin_users_path, alert: "Can't remove the last admin's admin role."
-          end
+          ActiveRecord::Base.transaction do
+            # Locking the shared "admin" Role row (not @user's own row) is
+            # what actually closes the race: two requests demoting two
+            # *different* admins both need this same lock, so the second
+            # one only proceeds after the first has committed, and its
+            # last_admin? check then sees the up-to-date admin count.
+            Role.lock.find_by(name: "admin") if demoting_admin
 
-          @user.roles = Role.where(name: role_names)
+            if demoting_admin && last_admin?(@user)
+              return redirect_to admin_users_path, alert: "Can't remove the last admin's admin role."
+            end
 
-          if @user.save
-            redirect_to admin_users_path, notice: "Roles updated for \#{@user.email}."
-          else
-            render :edit, status: :unprocessable_entity
+            @user.roles = Role.where(name: role_names)
+
+            if @user.save
+              redirect_to admin_users_path, notice: "Roles updated for \#{@user.email}."
+            else
+              render :edit, status: :unprocessable_entity
+            end
           end
         end
 
