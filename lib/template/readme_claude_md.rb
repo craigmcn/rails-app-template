@@ -1,7 +1,9 @@
 # frozen_string_literal: true
-# Applied by template.rb — always runs, last. Documents the stack that was
-# actually chosen so a CLAUDE.md-reading assistant (or a human) doesn't have
-# to reverse-engineer it from the Gemfile.
+# Applied by template.rb — always runs, last. Overwrites Rails' default
+# README.md with an app-specific quickstart (setup, port, seeded users,
+# troubleshooting) and writes CLAUDE.md documenting the deeper architecture,
+# so neither a human nor a CLAUDE.md-reading assistant has to reverse-engineer
+# the chosen stack from the Gemfile.
 
 after_bundle do
   auth = ENV.fetch("SCAFFOLD_AUTH", "clearance")
@@ -9,6 +11,59 @@ after_bundle do
   css = ENV.fetch("SCAFFOLD_CSS", "bootstrap")
   javascript = ENV.fetch("SCAFFOLD_JAVASCRIPT", "esbuild")
   app_title = File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
+
+  create_file "README.md", force: true do
+    <<~MARKDOWN
+      # #{app_title}
+
+      Scaffolded with [rails-app-template](https://github.com/craigmcn/rails-app-template) — Rails #{Rails::VERSION::STRING}, #{ENV.fetch("SCAFFOLD_DATABASE", "postgresql")}, #{css} + #{javascript}, #{auth == "devise" ? "Devise" : "Clearance"} auth, #{test == "rspec" ? "RSpec" : "Minitest"} tests. See `CLAUDE.md` for the full architecture (authorization, roles, services convention).
+
+      ## Setup
+
+      The database was already created, migrated, and seeded as the last step
+      of scaffolding, so:
+
+      ```sh
+      bin/dev
+      ```
+
+      ...starts the app at http://localhost:3000. Set `PORT` in `.env`
+      (gitignored — copy from the committed `.env.sample`) to use a different
+      port on this machine.
+
+      If `db:prepare` failed during scaffolding (see Troubleshooting below),
+      finish that step by hand once the database is reachable, then run
+      `bin/dev` as above:
+
+      ```sh
+      bin/rails db:prepare
+      ```
+
+      ## Seeded users
+
+      In development/test only, `bin/rails db:seed` creates an
+      `admin@example.com` (admin role) and a `member@example.com` (member
+      role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`.
+      This is a well-known, publicly documented password — the guard exists
+      so a production `db:seed`/`db:prepare` run can never create these
+      accounts. Remove or change them before any real users sign up.
+
+      ## Troubleshooting
+
+      **`FATAL: database "..." does not exist` (or similar, right after scaffolding)**
+
+      `bin/rails db:prepare` couldn't reach the database server during
+      scaffolding — the rest of the app was still scaffolded successfully.
+      Start/fix the database server, then run `bin/rails db:prepare` by hand.
+
+      | Symptom | Cause | Fix |
+      |---|---|---|
+      | `connection refused` / `could not connect to server` | Database server isn't running | Start it (e.g. `brew services start postgresql@16` on macOS) |
+      | `FATAL: role "..." does not exist` | Postgres superuser/role doesn't match your OS user | Create a matching role: `createuser -s $(whoami)`, or set `PGUSER`/`username:` in `config/database.yml` |
+      | `FATAL: password authentication failed` | `pg_hba.conf` requires a password but none is set | Set `PGPASSWORD`/`password:` in `config/database.yml`, or switch the local auth method to `trust`/`peer` |
+      | Works for `sqlite3` but not `postgresql`/`mysql` | Only the SQLite path auto-creates a file; server-based databases need the server running first | Start the relevant server, then re-run `bin/rails db:prepare` |
+    MARKDOWN
+  end
 
   create_file "CLAUDE.md", force: true do
     <<~MARKDOWN
