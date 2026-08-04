@@ -20,16 +20,16 @@ after_bundle do
 
       ## Setup
 
-      The database was already created, migrated, and seeded as the last step
-      of scaffolding, so:
+      The template's last scaffolding step ran `bin/rails db:prepare`
+      (create, migrate, seed). If that succeeded:
 
       ```sh
       bin/dev
       ```
 
-      ...starts the app at http://localhost:3000. Set `PORT` in `.env`
-      (gitignored — copy from the committed `.env.sample`) to use a different
-      port on this machine.
+      ...starts the app at http://localhost:3000 by default. Set `PORT` in
+      `.env` (gitignored — copy from the committed `.env.sample`) to use a
+      different port on this machine.
 
       If `db:prepare` failed during scaffolding (see Troubleshooting below),
       finish that step by hand once the database is reachable, then run
@@ -43,7 +43,7 @@ after_bundle do
 
       In development/test only, `bin/rails db:seed` creates an
       `admin@example.com` (admin role) and a `member@example.com` (member
-      role) user, both with the password `#{auth == "devise" ? "correct-horse-battery" : "User::DEFAULT_PASSWORD (\"correct-horse-battery\")"}`.
+      role) user, both with the password `correct-horse-battery`.
       This is a well-known, publicly documented password — the guard exists
       so a production `db:seed`/`db:prepare` run can never create these
       accounts. Remove or change them before any real users sign up.
