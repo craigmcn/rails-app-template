@@ -52,14 +52,12 @@ after_bundle do
     RUBY
   end
 
-  unless File.read("app/models/user.rb").include?("has_many :role_assignments")
-    say <<~MESSAGE, :red
-      Couldn't confirm the roles/role_assignments associations were added
-      to User (the expected `class User` anchor wasn't found). New users
-      won't get a default role and role checks will raise NoMethodError.
-      See lib/template/roles.rb.
-    MESSAGE
-  end
+  verified_inject "app/models/user.rb", "has_many :role_assignments", <<~MESSAGE
+    Couldn't confirm the roles/role_assignments associations were added
+    to User (the expected `class User` anchor wasn't found). New users
+    won't get a default role and role checks will raise NoMethodError.
+    See lib/template/roles.rb.
+  MESSAGE
 
   inject_into_file "app/models/user.rb", before: /^end\n/ do
     <<~RUBY.gsub(/^(?=.)/, "  ")
@@ -103,13 +101,11 @@ after_bundle do
     RUBY
   end
 
-  unless File.read("app/models/user.rb").include?("def admin?")
-    say <<~MESSAGE, :red
-      Couldn't confirm the admin?/moderator?/member? role-check methods
-      were added to User (the expected `before: /^end\\n/` anchor wasn't
-      found). Role checks used throughout the app (including /admin's own
-      authorization gate) will raise NoMethodError. See
-      lib/template/roles.rb.
-    MESSAGE
-  end
+  verified_inject "app/models/user.rb", "def admin?", <<~MESSAGE
+    Couldn't confirm the admin?/moderator?/member? role-check methods
+    were added to User (the expected `before: /^end\\n/` anchor wasn't
+    found). Role checks used throughout the app (including /admin's own
+    authorization gate) will raise NoMethodError. See
+    lib/template/roles.rb.
+  MESSAGE
 end

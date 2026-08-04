@@ -47,16 +47,14 @@ after_bundle do
       "[ -f .env.local ] && set -a && . ./.env.local && set +a\n\n" \
       "#{bin_dev_marker}"
 
-    unless File.read("bin/dev").include?("[ -f .env ] && set -a && . ./.env && set +a")
-      say <<~MESSAGE, :red
-        Couldn't confirm bin/dev was patched to load .env before Puma boots
-        (the expected marker text wasn't found after editing). PORT will
-        still reach Puma once Rails boots via config/puma.rb, but bin/dev's
-        own foreman default may win over .env for the initial bind. Rails'
-        --css/--javascript generators may have changed bin/dev's wording —
-        see lib/template/port.rb and patch it by hand.
-      MESSAGE
-    end
+    verified_inject "bin/dev", "[ -f .env ] && set -a && . ./.env && set +a", <<~MESSAGE
+      Couldn't confirm bin/dev was patched to load .env before Puma boots
+      (the expected marker text wasn't found after editing). PORT will
+      still reach Puma once Rails boots via config/puma.rb, but bin/dev's
+      own foreman default may win over .env for the initial bind. Rails'
+      --css/--javascript generators may have changed bin/dev's wording —
+      see lib/template/port.rb and patch it by hand.
+    MESSAGE
   end
 
   mailer_default = 'config.action_mailer.default_url_options = { host: "localhost", port: 3000 }'
@@ -64,13 +62,11 @@ after_bundle do
 
   gsub_file "config/environments/development.rb", mailer_default, mailer_patched
 
-  unless File.read("config/environments/development.rb").include?(mailer_patched)
-    say <<~MESSAGE, :red
-      Couldn't confirm config/environments/development.rb's
-      default_url_options was patched to read PORT (the expected hardcoded
-      `port: 3000` line wasn't found). The development mailer will keep
-      using port 3000 regardless of PORT in .env. See lib/template/port.rb
-      and patch it by hand.
-    MESSAGE
-  end
+  verified_inject "config/environments/development.rb", mailer_patched, <<~MESSAGE
+    Couldn't confirm config/environments/development.rb's
+    default_url_options was patched to read PORT (the expected hardcoded
+    `port: 3000` line wasn't found). The development mailer will keep
+    using port 3000 regardless of PORT in .env. See lib/template/port.rb
+    and patch it by hand.
+  MESSAGE
 end

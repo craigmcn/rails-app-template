@@ -38,16 +38,14 @@ after_bundle do
   # and confirmation emails with links pointing at example.com instead of
   # the real app, regardless of a HOST env var being set. Hard-fail instead
   # of warning, so this can't be scrolled past in scaffold output.
-  unless File.read("config/environments/production.rb").include?(production_mailer_patched)
-    raise <<~MESSAGE
-      Couldn't confirm config/environments/production.rb's
-      default_url_options was patched to read HOST (the expected hardcoded
-      `host: "example.com"` line wasn't found). Without this patch,
-      password-reset/confirmation emails in production would link to
-      example.com regardless of a HOST env var. Aborting scaffolding — see
-      lib/template/auth_devise.rb and patch it by hand, then re-run.
-    MESSAGE
-  end
+  verified_inject "config/environments/production.rb", production_mailer_patched, <<~MESSAGE, hard_fail: true
+    Couldn't confirm config/environments/production.rb's
+    default_url_options was patched to read HOST (the expected hardcoded
+    `host: "example.com"` line wasn't found). Without this patch,
+    password-reset/confirmation emails in production would link to
+    example.com regardless of a HOST env var. Aborting scaffolding — see
+    lib/template/auth_devise.rb and patch it by hand, then re-run.
+  MESSAGE
 
   inject_into_class "app/models/user.rb", "User" do
     "  validates :email, presence: true, uniqueness: true\n"

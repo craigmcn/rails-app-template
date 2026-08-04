@@ -31,15 +31,13 @@ after_bundle do
     "config.autoload_lib(ignore: %w[assets tasks])",
     'config.autoload_lib(ignore: %w[assets tasks generators])'
 
-  unless File.read("config/application.rb").include?('config.autoload_lib(ignore: %w[assets tasks generators])')
-    say <<~MESSAGE, :red
-      Couldn't confirm config/application.rb's autoload_lib was patched to
-      ignore lib/generators — the expected `config.autoload_lib(ignore: %w[
-      assets tasks])` line wasn't found. Without this, the app will crash on
-      boot under RAILS_ENV=production (or anywhere eager loading is on). See
-      lib/template/services.rb and patch it by hand.
-    MESSAGE
-  end
+  verified_inject "config/application.rb", 'config.autoload_lib(ignore: %w[assets tasks generators])', <<~MESSAGE
+    Couldn't confirm config/application.rb's autoload_lib was patched to
+    ignore lib/generators — the expected `config.autoload_lib(ignore: %w[
+    assets tasks])` line wasn't found. Without this, the app will crash on
+    boot under RAILS_ENV=production (or anywhere eager loading is on). See
+    lib/template/services.rb and patch it by hand.
+  MESSAGE
 
   create_file "app/services/application_service.rb" do
     <<~RUBY

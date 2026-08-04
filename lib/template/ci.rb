@@ -27,12 +27,10 @@ after_bundle do
     RUBY
   end
 
-  unless File.read("config/environments/development.rb").include?("Bullet.enable = true")
-    say <<~MESSAGE, :red
-      Couldn't confirm the Bullet N+1 query detector config was added to
-      development.rb (the expected `Rails.application.configure do\\n`
-      anchor wasn't found). Bullet is still in the Gemfile but won't be
-      enabled. See lib/template/ci.rb.
-    MESSAGE
-  end
+  verified_inject "config/environments/development.rb", "Bullet.enable = true", <<~MESSAGE
+    Couldn't confirm the Bullet N+1 query detector config was added to
+    development.rb (the expected `Rails.application.configure do\\n`
+    anchor wasn't found). Bullet is still in the Gemfile but won't be
+    enabled. See lib/template/ci.rb.
+  MESSAGE
 end
