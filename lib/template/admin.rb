@@ -155,33 +155,50 @@ after_bundle do
     end
   RUBY
 
-  if test == "rspec"
+  # Small per-framework "how do I spell this" helpers so the sign-in/status
+  # syntax lives in one place instead of being hand-duplicated at every call
+  # site across the four generated test files below — the RSpec/Minitest
+  # bodies otherwise differ only in these fragments, not in structure.
+  rspec = test == "rspec"
+  user_ref = lambda do |role|
+    if rspec
+      role == "member" ? "create(:user)" : "create(:user, :#{role})"
+    else
+      "users(:#{role})"
+    end
+  end
+  sign_in_expr = ->(expr) { "sign_in_as(#{expr})" }
+  sign_in_line = ->(role) { sign_in_expr.call(user_ref.call(role)) }
+  assert_status_line = ->(status) { rspec ? "expect(response).to have_http_status(:#{status})" : "assert_response :#{status}" }
+  assert_redirect_line = ->(path) { rspec ? "expect(response).to redirect_to(#{path})" : "assert_redirected_to #{path}" }
+
+  if rspec
     create_file "spec/requests/admin/dashboard_spec.rb" do
       <<~RUBY
         require "rails_helper"
 
         RSpec.describe "Admin::Dashboard", type: :request do
           it "forbids a member" do
-            sign_in_as(create(:user))
+            #{sign_in_line.call("member")}
             get admin_root_path
-            expect(response).to have_http_status(:forbidden)
+            #{assert_status_line.call("forbidden")}
           end
 
           it "allows a moderator" do
-            sign_in_as(create(:user, :moderator))
+            #{sign_in_line.call("moderator")}
             get admin_root_path
-            expect(response).to have_http_status(:success)
+            #{assert_status_line.call("success")}
           end
 
           it "allows an admin" do
-            sign_in_as(create(:user, :admin))
+            #{sign_in_line.call("admin")}
             get admin_root_path
-            expect(response).to have_http_status(:success)
+            #{assert_status_line.call("success")}
           end
 
           it "#{anonymous_verb} an anonymous request" do
             get admin_root_path
-            expect(response).to have_http_status(:#{anonymous_status})
+            #{assert_status_line.call(anonymous_status)}
           end
         end
       RUBY
@@ -193,37 +210,37 @@ after_bundle do
 
         RSpec.describe "Admin::Users", type: :request do
           it "forbids a moderator from the users index" do
-            sign_in_as(create(:user, :moderator))
+            #{sign_in_line.call("moderator")}
             get admin_users_path
-            expect(response).to have_http_status(:forbidden)
+            #{assert_status_line.call("forbidden")}
           end
 
           it "allows an admin to access the users index" do
-            sign_in_as(create(:user, :admin))
+            #{sign_in_line.call("admin")}
             get admin_users_path
-            expect(response).to have_http_status(:success)
+            #{assert_status_line.call("success")}
           end
 
           it "persists a role assignment made by an admin" do
-            sign_in_as(create(:user, :admin))
+            #{sign_in_line.call("admin")}
             member = create(:user)
             create(:role, :moderator)
 
             patch admin_user_path(member), params: { user: { role_names: [ "moderator" ] } }
 
-            expect(response).to redirect_to(admin_users_path)
+            #{assert_redirect_line.call("admin_users_path")}
             member.reload
             expect(member.moderator?).to be true
             expect(member.member?).to be false
           end
 
           it "cannot remove the last admin's admin role" do
-            admin = create(:user, :admin)
-            sign_in_as(admin)
+            admin = #{user_ref.call("admin")}
+            #{sign_in_expr.call("admin")}
 
             patch admin_user_path(admin), params: { user: { role_names: [ "member" ] } }
 
-            expect(response).to redirect_to(admin_users_path)
+            #{assert_redirect_line.call("admin_users_path")}
             expect(admin.reload.admin?).to be true
           end
         end
@@ -236,26 +253,26 @@ after_bundle do
 
         class Admin::DashboardControllerTest < ActionDispatch::IntegrationTest
           test "forbids a member" do
-            sign_in_as(users(:member))
+            #{sign_in_line.call("member")}
             get admin_root_path
-            assert_response :forbidden
+            #{assert_status_line.call("forbidden")}
           end
 
           test "allows a moderator" do
-            sign_in_as(users(:moderator))
+            #{sign_in_line.call("moderator")}
             get admin_root_path
-            assert_response :success
+            #{assert_status_line.call("success")}
           end
 
           test "allows an admin" do
-            sign_in_as(users(:admin))
+            #{sign_in_line.call("admin")}
             get admin_root_path
-            assert_response :success
+            #{assert_status_line.call("success")}
           end
 
           test "#{anonymous_verb} an anonymous request" do
             get admin_root_path
-            assert_response :#{anonymous_status}
+            #{assert_status_line.call(anonymous_status)}
           end
         end
       RUBY
@@ -267,36 +284,36 @@ after_bundle do
 
         class Admin::UsersControllerTest < ActionDispatch::IntegrationTest
           test "forbids a moderator from the users index" do
-            sign_in_as(users(:moderator))
+            #{sign_in_line.call("moderator")}
             get admin_users_path
-            assert_response :forbidden
+            #{assert_status_line.call("forbidden")}
           end
 
           test "allows an admin to access the users index" do
-            sign_in_as(users(:admin))
+            #{sign_in_line.call("admin")}
             get admin_users_path
-            assert_response :success
+            #{assert_status_line.call("success")}
           end
 
           test "persists a role assignment made by an admin" do
-            sign_in_as(users(:admin))
+            #{sign_in_line.call("admin")}
             member = users(:member)
 
             patch admin_user_path(member), params: { user: { role_names: [ "moderator" ] } }
 
-            assert_redirected_to admin_users_path
+            #{assert_redirect_line.call("admin_users_path")}
             member.reload
             assert member.moderator?
             refute member.member?
           end
 
           test "cannot remove the last admin's admin role" do
-            admin = users(:admin)
-            sign_in_as(admin)
+            admin = #{user_ref.call("admin")}
+            #{sign_in_expr.call("admin")}
 
             patch admin_user_path(admin), params: { user: { role_names: [ "member" ] } }
 
-            assert_redirected_to admin_users_path
+            #{assert_redirect_line.call("admin_users_path")}
             assert admin.reload.admin?
           end
         end
