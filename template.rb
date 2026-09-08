@@ -28,6 +28,7 @@ VIEW_STYLE = case CSS
 create_file ".yarnrc.yml", "nodeLinker: node-modules\n", force: true
 
 apply "#{LIB}/support.rb"
+apply "#{LIB}/db_credentials.rb"
 apply "#{LIB}/db_create.rb"
 apply "#{LIB}/port.rb"
 apply "#{LIB}/pundit.rb"

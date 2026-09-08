@@ -13,6 +13,8 @@ parser = OptionParser.new do |opts|
                 "Any option left out is prompted for interactively (unless --no-interactive).\n\n"
 
   opts.on("--database=DB", "Any value accepted by `rails new --database` (default: postgresql)") { |v| options[:database] = v }
+  opts.on("--db-username=USER", "MySQL/trilogy only — default: root") { |v| options[:db_username] = v }
+  opts.on("--db-password=PASSWORD", "MySQL/trilogy only — default: blank") { |v| options[:db_password] = v }
   opts.on("--css=CSS", "Any value accepted by `rails new --css` (default: bootstrap)") { |v| options[:css] = v }
   opts.on("--javascript=JS", "Any value accepted by `rails new --javascript` (default: esbuild)") { |v| options[:javascript] = v }
   opts.on("--auth=AUTH", %w[clearance devise], "clearance (default) or devise") { |v| options[:auth] = v }
@@ -50,6 +52,10 @@ end
 app_name = ARGV.shift
 no_interactive = options.delete(:no_interactive)
 
+def mysql_family?(database)
+  database.to_s.match?(/mysql|trilogy/)
+end
+
 DEFAULTS = {
   database: "postgresql",
   css: "bootstrap",
@@ -64,7 +70,9 @@ DEFAULTS = {
   rack_attack: true,
   system_test_driver: "selenium",
   pagy: true,
-  annotate: true
+  annotate: true,
+  db_username: "root",
+  db_password: ""
 }.freeze
 
 if no_interactive
@@ -95,6 +103,12 @@ else
   options[:auth]       ||= prompt.select("Authentication:", %w[clearance devise])
   options[:test]        ||= prompt.select("Test framework:", %w[minitest rspec])
   options[:database]    ||= prompt.select("Database:", %w[postgresql sqlite3 mysql trilogy], default: 1)
+
+  if mysql_family?(options[:database])
+    options[:db_username] ||= prompt.ask("MySQL username:", default: DEFAULTS[:db_username])
+    options[:db_password] ||= prompt.mask("MySQL password (blank if none):", default: DEFAULTS[:db_password])
+  end
+
   options[:css]         ||= prompt.select("CSS framework:", %w[bootstrap tailwind sass postcss bulma none])
   options[:javascript]  ||= prompt.select("JavaScript bundler:", %w[esbuild importmap bun webpack rollup])
   options[:skip_admin] = !prompt.yes?("Include the /admin namespace UI?", default: true) if options[:skip_admin].nil?
@@ -113,7 +127,7 @@ else
   end
 
   prompt.say("\n#{app_name}: #{options[:auth]} + #{options[:test]}, " \
-             "#{options[:database]}/#{options[:css]}/#{options[:javascript]}, " \
+             "#{options[:database]}#{mysql_family?(options[:database]) ? " (user: #{options[:db_username]})" : ""}/#{options[:css]}/#{options[:javascript]}, " \
              "port #{options[:port]}, #{options[:system_test_driver]} system tests" \
              "#{options[:skip_admin] ? ", no admin UI" : ""}" \
              "#{options[:bullet] ? "" : ", no Bullet"}" \
@@ -144,7 +158,9 @@ env = {
   "SCAFFOLD_RACK_ATTACK" => options[:rack_attack].to_s,
   "SCAFFOLD_SYSTEM_TEST_DRIVER" => options[:system_test_driver],
   "SCAFFOLD_PAGY" => options[:pagy].to_s,
-  "SCAFFOLD_ANNOTATE" => options[:annotate].to_s
+  "SCAFFOLD_ANNOTATE" => options[:annotate].to_s,
+  "SCAFFOLD_DB_USERNAME" => options[:db_username],
+  "SCAFFOLD_DB_PASSWORD" => options[:db_password]
 }
 
 cmd = [
