@@ -9,6 +9,8 @@ Every new app gets, regardless of flags:
 - An **admin namespace** (`/admin`, gated to moderators/admins; user role management gated to admins) — opt out with `--skip-admin`
 - Login, sign up, and reset-password views styled to match the chosen CSS framework
 - A generated `CLAUDE.md` documenting the chosen stack
+- Bullet, pagy, annotaterb, and Rack::Attack, all on by default — opt out per-app with `--no-bullet`/`--no-pagy`/`--no-annotate`/`--no-rack-attack`
+- Active Storage and Action Text, off by default — opt in with `--active-storage`/`--action-text`
 
 ## Usage
 
@@ -16,7 +18,7 @@ Every new app gets, regardless of flags:
 bin/new-rails-app [my_app] [options]
 ```
 
-Any option left out (including the app name) is prompted for interactively — select lists for the closed choices (`--auth`, `--test`, `--skip-admin`, `--bullet`), free text for `my_app`/`--port`, and a yes/no confirmation summary before `rails new` actually runs. Passing a flag on the command line skips its prompt, so scripted/partial invocations work the same as before. Pass `--no-interactive` to fail fast on any missing option instead of prompting (for CI/non-TTY use) — this requires the app name and every option to be given as flags.
+Any option left out (including the app name) is prompted for interactively — select lists for the closed choices (`--auth`, `--test`, `--css`, etc.), yes/no for the toggles, free text for `my_app`/`--port`, and a summary + confirmation before `rails new` actually runs. Passing a flag on the command line skips its prompt, so scripted/partial invocations work the same as before. Pass `--no-interactive` to skip prompting entirely (for CI/non-TTY use) — the app name is still required, but any option left unspecified falls back to its default from the table below instead of being prompted for.
 
 `rails new` creates the app relative to your current working directory, not relative to this repo — `bin/new-rails-app` never changes directories. Run it from wherever you want `my_app/` to land, e.g. from this repo's parent directory to create `my_app` as a sibling of `rails-app-template`:
 
@@ -35,6 +37,12 @@ rails-app-template/bin/new-rails-app my_app [options]
 | `--skip-admin` | — | admin namespace included |
 | `--bullet` / `--no-bullet` | — | Bullet (N+1 query detector) included |
 | `--port` | any integer | `3000` |
+| `--active-storage` / `--no-active-storage` | — | Active Storage omitted |
+| `--action-text` / `--no-action-text` | — (implies `--active-storage`) | Action Text omitted |
+| `--rack-attack` / `--no-rack-attack` | — | Rack::Attack included |
+| `--system-test-driver` | `selenium`, `cuprite` | `selenium` |
+| `--pagy` / `--no-pagy` | — | pagy included |
+| `--annotate` / `--no-annotate` | — | annotaterb included |
 | `--no-interactive` | — | prompts enabled |
 
 `--database`, `--css`, and `--javascript` are passed straight through to `rails new` unfiltered, so any value a given Rails version supports for those flags works here too — this tool doesn't hardcode or restrict the list. The interactive prompts for these three only offer a curated subset for convenience; pass the flag directly for anything outside that list.
@@ -59,15 +67,17 @@ bin/new-rails-app my_app --database=sqlite3 --javascript=importmap --test=rspec
 bin/new-rails-app my_app --auth=devise --css=tailwind
 
 # non-interactive default baseline (CI/scripting) — matches
-# community_bookshelf/bookshelf-islands/bookshelf-api; every option must be
-# passed explicitly, since --no-interactive refuses to prompt for gaps
+# community_bookshelf/bookshelf-islands/bookshelf-api; --no-interactive
+# skips all prompts and applies the defaults table below to anything
+# left unspecified, so this is equivalent to just:
+#   bin/new-rails-app my_app --no-interactive
 bin/new-rails-app my_app --no-interactive --database=postgresql --css=bootstrap \
   --javascript=esbuild --auth=clearance --test=minitest
 ```
 
 ## How it works
 
-`bin/new-rails-app` prompts (via [tty-prompt](https://github.com/piotrmurach/tty-prompt)) for any option not passed as a flag, then sets `SCAFFOLD_*` environment variables (the auth/test/css/javascript/skip-admin/bullet/port choices) and execs `rails new` with the matching native flags plus `-m template.rb`. `template.rb` applies the files under `lib/template/` in order — each one adds gems immediately and defers any generator/model-editing work that needs those gems into an `after_bundle` block, since bundling happens after the template body runs.
+`bin/new-rails-app` prompts (via [tty-prompt](https://github.com/piotrmurach/tty-prompt)) for any option not passed as a flag, then sets `SCAFFOLD_*` environment variables (one per option in the table above) and execs `rails new` with the matching native flags plus `-m template.rb`. `template.rb` applies the files under `lib/template/` in order — each one adds gems immediately and defers any generator/model-editing work that needs those gems into an `after_bundle` block, since bundling happens after the template body runs.
 
 As its last step, the template runs `bin/rails db:prepare` (creates, migrates, and seeds the database), so a successful `bin/new-rails-app my_app` leaves you with an app that's immediately ready for `bin/dev` — no manual database setup step required.
 

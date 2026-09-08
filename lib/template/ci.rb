@@ -5,6 +5,7 @@
 # to the Gemfile, so this only layers on a few extra dev conveniences.
 
 BULLET = ENV.fetch("SCAFFOLD_BULLET", "true") == "true"
+ANNOTATE = ENV.fetch("SCAFFOLD_ANNOTATE", "true") == "true"
 
 gem_group :development, :test do
   gem "dotenv-rails", "~> 3.0"
@@ -13,6 +14,7 @@ end
 gem_group :development do
   gem "letter_opener", "~> 1.0"
   gem "bullet", "~> 8.0" if BULLET
+  gem "annotaterb", "~> 4.13", require: false if ANNOTATE
 end
 
 after_bundle do

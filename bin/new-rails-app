@@ -21,6 +21,17 @@ parser = OptionParser.new do |opts|
   opts.on("--bullet", "Include the Bullet N+1 query detector (default)") { options[:bullet] = true }
   opts.on("--no-bullet", "Omit the Bullet N+1 query detector") { options[:bullet] = false }
   opts.on("--port=PORT", Integer, "Dev server port, written to .env (default: 3000)") { |v| options[:port] = v }
+  opts.on("--active-storage", "Run the Active Storage installer (default: omitted)") { options[:active_storage] = true }
+  opts.on("--no-active-storage", "Omit Active Storage") { options[:active_storage] = false }
+  opts.on("--action-text", "Run the Action Text installer (implies --active-storage; default: omitted)") { options[:action_text] = true }
+  opts.on("--no-action-text", "Omit Action Text") { options[:action_text] = false }
+  opts.on("--rack-attack", "Add Rack::Attack with baseline throttle rules (default)") { options[:rack_attack] = true }
+  opts.on("--no-rack-attack", "Omit Rack::Attack") { options[:rack_attack] = false }
+  opts.on("--system-test-driver=DRIVER", %w[selenium cuprite], "selenium (default) or cuprite for Capybara system tests") { |v| options[:system_test_driver] = v }
+  opts.on("--pagy", "Include pagy for pagination (default)") { options[:pagy] = true }
+  opts.on("--no-pagy", "Omit pagy") { options[:pagy] = false }
+  opts.on("--annotate", "Include annotaterb (schema comments on models, default)") { options[:annotate] = true }
+  opts.on("--no-annotate", "Omit annotaterb") { options[:annotate] = false }
   opts.on("--no-interactive", "Fail on missing options instead of prompting for them") { options[:no_interactive] = true }
   opts.on("-h", "--help", "Show this help") do
     puts opts
@@ -47,7 +58,13 @@ DEFAULTS = {
   test: "minitest",
   skip_admin: false,
   bullet: true,
-  port: 3000
+  port: 3000,
+  active_storage: false,
+  action_text: false,
+  rack_attack: true,
+  system_test_driver: "selenium",
+  pagy: true,
+  annotate: true
 }.freeze
 
 if no_interactive
@@ -58,6 +75,11 @@ if no_interactive
     exit 1
   end
   DEFAULTS.each { |key, value| options[key] = value if options[key].nil? }
+
+  if options[:action_text] && !options[:active_storage]
+    warn "--action-text requires Active Storage; enabling it too."
+    options[:active_storage] = true
+  end
 else
   require "bundler/inline"
 
@@ -78,12 +100,28 @@ else
   options[:skip_admin] = !prompt.yes?("Include the /admin namespace UI?", default: true) if options[:skip_admin].nil?
   options[:bullet] = prompt.yes?("Include Bullet (N+1 query detector)?", default: true) if options[:bullet].nil?
   options[:port] ||= prompt.ask("Dev server port:", default: DEFAULTS[:port]) { |q| q.convert(:int) }
+  options[:active_storage] = prompt.yes?("Include Active Storage (file uploads)?", default: false) if options[:active_storage].nil?
+  options[:action_text] = prompt.yes?("Include Action Text (rich text editor)?", default: false) if options[:action_text].nil?
+  options[:rack_attack] = prompt.yes?("Include Rack::Attack (request throttling)?", default: true) if options[:rack_attack].nil?
+  options[:system_test_driver] ||= prompt.select("System test driver:", %w[selenium cuprite])
+  options[:pagy] = prompt.yes?("Include pagy (pagination)?", default: true) if options[:pagy].nil?
+  options[:annotate] = prompt.yes?("Include annotaterb (schema comments on models)?", default: true) if options[:annotate].nil?
+
+  if options[:action_text] && !options[:active_storage]
+    prompt.say("Action Text requires Active Storage — enabling it too.", color: :yellow)
+    options[:active_storage] = true
+  end
 
   prompt.say("\n#{app_name}: #{options[:auth]} + #{options[:test]}, " \
              "#{options[:database]}/#{options[:css]}/#{options[:javascript]}, " \
-             "port #{options[:port]}" \
+             "port #{options[:port]}, #{options[:system_test_driver]} system tests" \
              "#{options[:skip_admin] ? ", no admin UI" : ""}" \
-             "#{options[:bullet] ? "" : ", no Bullet"}\n", color: :cyan)
+             "#{options[:bullet] ? "" : ", no Bullet"}" \
+             "#{options[:rack_attack] ? "" : ", no Rack::Attack"}" \
+             "#{options[:active_storage] ? ", Active Storage" : ""}" \
+             "#{options[:action_text] ? ", Action Text" : ""}" \
+             "#{options[:pagy] ? "" : ", no pagy"}" \
+             "#{options[:annotate] ? "" : ", no annotaterb"}\n", color: :cyan)
   unless prompt.yes?("Proceed?", default: true)
     warn "Aborted."
     exit 1
@@ -100,7 +138,13 @@ env = {
   "SCAFFOLD_JAVASCRIPT" => options[:javascript],
   "SCAFFOLD_DATABASE" => options[:database],
   "SCAFFOLD_BULLET" => options[:bullet].to_s,
-  "SCAFFOLD_PORT" => options[:port].to_s
+  "SCAFFOLD_PORT" => options[:port].to_s,
+  "SCAFFOLD_ACTIVE_STORAGE" => options[:active_storage].to_s,
+  "SCAFFOLD_ACTION_TEXT" => options[:action_text].to_s,
+  "SCAFFOLD_RACK_ATTACK" => options[:rack_attack].to_s,
+  "SCAFFOLD_SYSTEM_TEST_DRIVER" => options[:system_test_driver],
+  "SCAFFOLD_PAGY" => options[:pagy].to_s,
+  "SCAFFOLD_ANNOTATE" => options[:annotate].to_s
 }
 
 cmd = [

@@ -12,6 +12,12 @@ after_bundle do
   javascript = ENV.fetch("SCAFFOLD_JAVASCRIPT", "esbuild")
   port = ENV.fetch("SCAFFOLD_PORT", "3000")
   bullet = ENV.fetch("SCAFFOLD_BULLET", "true") == "true"
+  active_storage = ENV.fetch("SCAFFOLD_ACTIVE_STORAGE", "false") == "true"
+  action_text = ENV.fetch("SCAFFOLD_ACTION_TEXT", "false") == "true"
+  rack_attack = ENV.fetch("SCAFFOLD_RACK_ATTACK", "true") == "true"
+  system_test_driver = ENV.fetch("SCAFFOLD_SYSTEM_TEST_DRIVER", "selenium")
+  pagy = ENV.fetch("SCAFFOLD_PAGY", "true") == "true"
+  annotate = ENV.fetch("SCAFFOLD_ANNOTATE", "true") == "true"
   app_title = File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
 
   create_file "README.md", force: true do
@@ -81,8 +87,13 @@ after_bundle do
       - **Authorization**: Pundit (policy classes) + a `roles`/`role_assignments` table (`admin` / `moderator` / `member`)
       - **CSS**: #{css}
       - **JavaScript**: #{javascript}
-      - **Testing**: #{test == "rspec" ? "RSpec + Capybara" : "Minitest + Capybara"}
+      - **Testing**: #{test == "rspec" ? "RSpec + Capybara" : "Minitest + Capybara"} (system tests via #{system_test_driver == "cuprite" ? "Cuprite" : "Selenium"})
       #{bullet ? "- **N+1 detection**: Bullet (development only)" : ""}
+      #{pagy ? "- **Pagination**: pagy" : ""}
+      #{annotate ? "- **Schema annotations**: annotaterb (`bundle exec annotaterb models`)" : ""}
+      #{active_storage ? "- **File uploads**: Active Storage" : ""}
+      #{action_text ? "- **Rich text**: Action Text" : ""}
+      #{rack_attack ? "- **Request throttling**: Rack::Attack (`config/initializers/rack_attack.rb`)" : ""}
 
       ## Setup
 
