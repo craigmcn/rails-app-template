@@ -6,17 +6,11 @@ require "optparse"
 TEMPLATE_ROOT = File.expand_path("..", __dir__)
 TEMPLATE_FILE = File.join(TEMPLATE_ROOT, "template.rb")
 
-options = {
-  database: "postgresql",
-  css: "bootstrap",
-  javascript: "esbuild",
-  auth: "clearance",
-  test: "minitest",
-  skip_admin: false
-}
+options = {} # nil/missing means "not given on the command line" -> eligible for a prompt
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: new-rails-app APP_NAME [options]"
+  opts.banner = "Usage: new-rails-app [APP_NAME] [options]\n" \
+                "Any option left out is prompted for interactively (unless --no-interactive).\n\n"
 
   opts.on("--database=DB", "Any value accepted by `rails new --database` (default: postgresql)") { |v| options[:database] = v }
   opts.on("--css=CSS", "Any value accepted by `rails new --css` (default: bootstrap)") { |v| options[:css] = v }
@@ -24,6 +18,10 @@ parser = OptionParser.new do |opts|
   opts.on("--auth=AUTH", %w[clearance devise], "clearance (default) or devise") { |v| options[:auth] = v }
   opts.on("--test=TEST", %w[minitest rspec], "minitest (default) or rspec") { |v| options[:test] = v }
   opts.on("--skip-admin", "Skip the /admin namespace UI (roles/authorization scaffolding is always included)") { options[:skip_admin] = true }
+  opts.on("--bullet", "Include the Bullet N+1 query detector (default)") { options[:bullet] = true }
+  opts.on("--no-bullet", "Omit the Bullet N+1 query detector") { options[:bullet] = false }
+  opts.on("--port=PORT", Integer, "Dev server port, written to .env (default: 3000)") { |v| options[:port] = v }
+  opts.on("--no-interactive", "Fail on missing options instead of prompting for them") { options[:no_interactive] = true }
   opts.on("-h", "--help", "Show this help") do
     puts opts
     exit
@@ -39,9 +37,59 @@ rescue OptionParser::ParseError => e
 end
 
 app_name = ARGV.shift
-if app_name.nil? || app_name.empty?
-  warn parser
-  exit 1
+no_interactive = options.delete(:no_interactive)
+
+DEFAULTS = {
+  database: "postgresql",
+  css: "bootstrap",
+  javascript: "esbuild",
+  auth: "clearance",
+  test: "minitest",
+  skip_admin: false,
+  bullet: true,
+  port: 3000
+}.freeze
+
+if no_interactive
+  app_name = nil if app_name&.empty?
+  if app_name.nil?
+    warn "APP_NAME is required in --no-interactive mode"
+    warn parser
+    exit 1
+  end
+  DEFAULTS.each { |key, value| options[key] = value if options[key].nil? }
+else
+  require "bundler/inline"
+
+  gemfile(true, quiet: true) do
+    source "https://rubygems.org"
+    gem "tty-prompt", "~> 0.23"
+  end
+
+  prompt = TTY::Prompt.new
+
+  app_name = prompt.ask("App name:") { |q| q.required true } if app_name.nil? || app_name.empty?
+
+  options[:auth]       ||= prompt.select("Authentication:", %w[clearance devise])
+  options[:test]        ||= prompt.select("Test framework:", %w[minitest rspec])
+  options[:database]    ||= prompt.select("Database:", %w[postgresql sqlite3 mysql trilogy], default: 1)
+  options[:css]         ||= prompt.select("CSS framework:", %w[bootstrap tailwind sass postcss bulma none])
+  options[:javascript]  ||= prompt.select("JavaScript bundler:", %w[esbuild importmap bun webpack rollup])
+  options[:skip_admin] = !prompt.yes?("Include the /admin namespace UI?", default: true) if options[:skip_admin].nil?
+  options[:bullet] = prompt.yes?("Include Bullet (N+1 query detector)?", default: true) if options[:bullet].nil?
+  options[:port] ||= prompt.ask("Dev server port:", default: DEFAULTS[:port]) { |q| q.convert(:int) }
+
+  prompt.say("\n#{app_name}: #{options[:auth]} + #{options[:test]}, " \
+             "#{options[:database]}/#{options[:css]}/#{options[:javascript]}, " \
+             "port #{options[:port]}" \
+             "#{options[:skip_admin] ? ", no admin UI" : ""}" \
+             "#{options[:bullet] ? "" : ", no Bullet"}\n", color: :cyan)
+  unless prompt.yes?("Proceed?", default: true)
+    warn "Aborted."
+    exit 1
+  end
+
+  DEFAULTS.each { |key, value| options[key] = value if options[key].nil? }
 end
 
 env = {
@@ -50,7 +98,9 @@ env = {
   "SCAFFOLD_SKIP_ADMIN" => options[:skip_admin].to_s,
   "SCAFFOLD_CSS" => options[:css],
   "SCAFFOLD_JAVASCRIPT" => options[:javascript],
-  "SCAFFOLD_DATABASE" => options[:database]
+  "SCAFFOLD_DATABASE" => options[:database],
+  "SCAFFOLD_BULLET" => options[:bullet].to_s,
+  "SCAFFOLD_PORT" => options[:port].to_s
 }
 
 cmd = [

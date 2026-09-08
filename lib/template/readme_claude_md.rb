@@ -10,6 +10,8 @@ after_bundle do
   test = ENV.fetch("SCAFFOLD_TEST", "minitest")
   css = ENV.fetch("SCAFFOLD_CSS", "bootstrap")
   javascript = ENV.fetch("SCAFFOLD_JAVASCRIPT", "esbuild")
+  port = ENV.fetch("SCAFFOLD_PORT", "3000")
+  bullet = ENV.fetch("SCAFFOLD_BULLET", "true") == "true"
   app_title = File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
 
   create_file "README.md", force: true do
@@ -27,7 +29,7 @@ after_bundle do
       bin/dev
       ```
 
-      ...starts the app at http://localhost:3000 by default. Set `PORT` in
+      ...starts the app at http://localhost:#{port} by default. Set `PORT` in
       `.env` (gitignored — copy from the committed `.env.sample`) to use a
       different port on this machine.
 
@@ -80,6 +82,7 @@ after_bundle do
       - **CSS**: #{css}
       - **JavaScript**: #{javascript}
       - **Testing**: #{test == "rspec" ? "RSpec + Capybara" : "Minitest + Capybara"}
+      #{bullet ? "- **N+1 detection**: Bullet (development only)" : ""}
 
       ## Setup
 
@@ -99,7 +102,7 @@ after_bundle do
 
       ## Port
 
-      The dev server binds to port 3000 by default. To use a different port
+      The dev server binds to port #{port} by default. To use a different port
       on this machine, set `PORT` in `.env` (gitignored — copy from
       `.env.sample`, which is the committed template). `bin/dev` and the
       development mailer's `default_url_options` both read it from there.
@@ -147,7 +150,7 @@ after_bundle do
 
           bin/dev
 
-      ...starts the app at http://localhost:3000 (set PORT in .env to use a
+      ...starts the app at http://localhost:#{port} (set PORT in .env to use a
       different port on this machine — see .env.sample).
     MESSAGE
   else
@@ -158,7 +161,7 @@ after_bundle do
 
           bin/dev
 
-      ...to start the app at http://localhost:3000 (set PORT in .env to use
+      ...to start the app at http://localhost:#{port} (set PORT in .env to use
       a different port on this machine — see .env.sample).
     MESSAGE
   end

@@ -6,15 +6,17 @@
 # default_url_options. This makes PORT the single dev-facing knob for all
 # three, and documents it in a committed .env.sample.
 
+PORT = ENV.fetch("SCAFFOLD_PORT", "3000")
+
 create_file ".env.sample", <<~ENV
   # Copy this file to .env (gitignored) and edit it to override settings for
   # your machine. PORT is read by bin/dev and by the development mailer's
   # default_url_options in config/environments/development.rb.
-  PORT=3000
+  PORT=#{PORT}
 ENV
 
 create_file ".env", <<~ENV
-  PORT=3000
+  PORT=#{PORT}
 ENV
 
 # Rails' own generated .gitignore has `/.env*`, which also matches
