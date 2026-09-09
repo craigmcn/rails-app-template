@@ -126,16 +126,29 @@ else
     options[:active_storage] = true
   end
 
-  prompt.say("\n#{app_name}: #{options[:auth]} + #{options[:test]}, " \
-             "#{options[:database]}#{mysql_family?(options[:database]) ? " (user: #{options[:db_username]})" : ""}/#{options[:css]}/#{options[:javascript]}, " \
-             "port #{options[:port]}, #{options[:system_test_driver]} system tests" \
-             "#{options[:skip_admin] ? ", no admin UI" : ""}" \
-             "#{options[:bullet] ? "" : ", no Bullet"}" \
-             "#{options[:rack_attack] ? "" : ", no Rack::Attack"}" \
-             "#{options[:active_storage] ? ", Active Storage" : ""}" \
-             "#{options[:action_text] ? ", Action Text" : ""}" \
-             "#{options[:pagy] ? "" : ", no pagy"}" \
-             "#{options[:annotate] ? "" : ", no annotaterb"}\n", color: :cyan)
+  summary = {
+    "App name" => app_name,
+    "Database" => mysql_family?(options[:database]) ? "#{options[:database]} (user: #{options[:db_username]})" : options[:database],
+    "Authentication" => options[:auth],
+    "Test framework" => options[:test],
+    "CSS" => options[:css],
+    "JavaScript" => options[:javascript],
+    "Dev server port" => options[:port],
+    "Admin UI (/admin)" => options[:skip_admin] ? "no" : "yes",
+    "Bullet" => options[:bullet] ? "yes" : "no",
+    "Rack::Attack" => options[:rack_attack] ? "yes" : "no",
+    "Active Storage" => options[:active_storage] ? "yes" : "no",
+    "Action Text" => options[:action_text] ? "yes" : "no",
+    "System test driver" => options[:system_test_driver],
+    "Pagy" => options[:pagy] ? "yes" : "no",
+    "annotaterb" => options[:annotate] ? "yes" : "no"
+  }
+  label_width = summary.keys.map(&:length).max
+
+  prompt.say("\nReady to scaffold:\n", color: :cyan)
+  summary.each { |label, value| prompt.say("  #{label.ljust(label_width)}  #{value}") }
+  prompt.say("")
+
   unless prompt.yes?("Proceed?", default: true)
     warn "Aborted."
     exit 1
