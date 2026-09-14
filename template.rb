@@ -27,6 +27,20 @@ VIEW_STYLE = case CSS
 # own --css/--javascript setup runs any `yarn` commands.
 create_file ".yarnrc.yml", "nodeLinker: node-modules\n", force: true
 
+# json 3.x changed JSON.parse's call signature in a way Rails 8.1.3.1's
+# ActiveSupport isn't compatible with yet — every encrypted cookie (session,
+# CSRF) is JSON-decoded on every request via
+# ActiveSupport::Messages::Metadata#deserialize_from_json, so an
+# unconstrained Gemfile resolves to json 3.x and every request past the
+# first one (the first has no cookies yet to decode) raises
+# `ArgumentError: wrong number of arguments (given 2, expected 1)` deep
+# inside JSON.parse — surfacing as an unstyled, traceless 500 even in
+# development, since the exact same JSON decode also breaks rendering
+# Rails' own debug-exceptions error page. Reproduced and confirmed fixed
+# against a real scaffolded app; revisit once Rails/ActiveSupport
+# officially supports json 3.x.
+gem "json", "< 3"
+
 apply "#{LIB}/support.rb"
 apply "#{LIB}/db_credentials.rb"
 apply "#{LIB}/db_create.rb"
