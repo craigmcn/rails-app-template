@@ -31,6 +31,7 @@ apply "#{LIB}/support.rb"
 apply "#{LIB}/db_credentials.rb"
 apply "#{LIB}/db_create.rb"
 apply "#{LIB}/port.rb"
+apply "#{LIB}/puma_dev_threads.rb"
 apply "#{LIB}/pundit.rb"
 apply(AUTH == "devise" ? "#{LIB}/auth_devise.rb" : "#{LIB}/auth_clearance.rb")
 apply "#{LIB}/roles.rb"
