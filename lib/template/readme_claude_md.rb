@@ -18,7 +18,8 @@ after_bundle do
   system_test_driver = ENV.fetch("SCAFFOLD_SYSTEM_TEST_DRIVER", "selenium")
   pagy = ENV.fetch("SCAFFOLD_PAGY", "true") == "true"
   annotate = ENV.fetch("SCAFFOLD_ANNOTATE", "true") == "true"
-  app_title = File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
+  app_dir = File.basename(destination_root)
+  app_title = app_dir.split(/[-_]/).map(&:capitalize).join(" ")
 
   create_file "README.md", force: true do
     <<~MARKDOWN
@@ -155,10 +156,14 @@ after_bundle do
     MARKDOWN
   end
 
+  # rails new runs in the directory it was invoked from, not inside the new
+  # app dir — the caller's shell is still in the parent, so bin/dev needs a
+  # cd first even though the generator process itself has already chdir'd.
   if @db_prepare_succeeded
     say <<~MESSAGE, :green
       #{app_title} is ready.
 
+          cd #{app_dir}
           bin/dev
 
       ...starts the app at http://localhost:#{port} (set PORT in .env to use a
@@ -170,6 +175,7 @@ after_bundle do
       first (see the red message above and README.md > Troubleshooting),
       then run:
 
+          cd #{app_dir}
           bin/dev
 
       ...to start the app at http://localhost:#{port} (set PORT in .env to use
@@ -186,5 +192,11 @@ after_bundle do
       there, config/environments/production.rb falls back to "example.com"
       for confirmation/password-reset email links.
     MESSAGE
+
+    # Deferred from devise:install above so it's the last thing printed,
+    # not buried under every subsequent generator's output.
+    if @devise_install_readme
+      say "\n#{@devise_install_readme}", :yellow
+    end
   end
 end
