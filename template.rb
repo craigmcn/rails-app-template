@@ -51,7 +51,12 @@ apply(AUTH == "devise" ? "#{LIB}/auth_devise.rb" : "#{LIB}/auth_clearance.rb")
 apply "#{LIB}/roles.rb"
 apply "#{LIB}/admin.rb" unless SKIP_ADMIN
 apply "#{LIB}/rack_attack.rb" if RACK_ATTACK
-apply "#{LIB}/active_storage.rb" if ACTIVE_STORAGE
+# bin/new-rails-app already forces ACTIVE_STORAGE on whenever ACTION_TEXT is
+# set, but that guard lives in the CLI, not here — anyone invoking
+# `rails new -m template.rb` directly (or hand-setting SCAFFOLD_* env vars)
+# would otherwise get Action Text applied without the Active Storage tables
+# its rich_text_content references. Guard here too, not just in the CLI.
+apply "#{LIB}/active_storage.rb" if ACTIVE_STORAGE || ACTION_TEXT
 apply "#{LIB}/action_text.rb" if ACTION_TEXT
 apply "#{LIB}/pagy.rb" if PAGY
 apply "#{LIB}/services.rb"

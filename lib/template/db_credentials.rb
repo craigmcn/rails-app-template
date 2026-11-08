@@ -13,15 +13,23 @@
 DATABASE = ENV.fetch("SCAFFOLD_DATABASE", "postgresql")
 
 if DATABASE.match?(/mysql|trilogy/)
+  require "json"
   db_username = ENV.fetch("SCAFFOLD_DB_USERNAME", "root")
   db_password = ENV.fetch("SCAFFOLD_DB_PASSWORD", "")
 
+  # #to_json produces a double-quoted, escaped scalar that's valid YAML as
+  # well as valid JSON, so YAML-significant characters (":", "#", leading/
+  # trailing spaces) in a real-world username/password can't break the
+  # generated config/database.yml the way raw interpolation would.
+  db_username_yaml = db_username.to_json
+  db_password_yaml = db_password.to_json
+
   # Block form (not a plain string replacement) so a password containing
   # "\" or "$" isn't misinterpreted as a backreference by String#gsub.
-  gsub_file("config/database.yml", /^  username: root$/) { "  username: #{db_username}" }
-  gsub_file("config/database.yml", /^  password:\s*$/) { "  password: #{db_password}" }
+  gsub_file("config/database.yml", /^  username: root$/) { "  username: #{db_username_yaml}" }
+  gsub_file("config/database.yml", /^  password:\s*$/) { "  password: #{db_password_yaml}" }
 
-  verified_inject "config/database.yml", "username: #{db_username}", <<~MESSAGE
+  verified_inject "config/database.yml", "username: #{db_username_yaml}", <<~MESSAGE
     Couldn't confirm config/database.yml's username was updated (the
     expected `username: root` line wasn't found — Rails may have changed
     its generated wording). db:create will likely fail against a MySQL
