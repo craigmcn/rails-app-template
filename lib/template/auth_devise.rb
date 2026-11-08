@@ -17,8 +17,11 @@ after_bundle do
   original_stdout_fd = STDOUT.dup
   STDOUT.reopen(tempfile)
   STDOUT.sync = true
+  generate_error = nil
   begin
     generate "devise:install"
+  rescue => e
+    generate_error = e
   ensure
     STDOUT.reopen(original_stdout_fd)
     original_stdout_fd.close
@@ -27,6 +30,14 @@ after_bundle do
   output = tempfile.read
   tempfile.close
   tempfile.unlink
+
+  # If devise:install raised, print whatever it captured before re-raising —
+  # otherwise the developer sees a bare crash with none of the "create ..."
+  # context that used to stream live to the terminal before this capture was added.
+  if generate_error
+    print output
+    raise generate_error
+  end
 
   # devise:install's readme is boxed between two "===...=" separator lines —
   # splitting on those lines isolates it from the "create ..." log lines

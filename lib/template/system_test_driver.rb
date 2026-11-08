@@ -39,8 +39,24 @@ after_bundle do
       <<~RUBY
         require "capybara/rspec"
         #{driver_setup}
-        Capybara.default_driver = Capybara.javascript_driver = :#{driver_name}
+
+        # rspec-rails' SystemExampleGroup always calls `driven_by(DEFAULT_DRIVER)
+        # unless @driver` in its own before hook, which runs after this one (this
+        # hook is registered globally via RSpec.configure, so it's outer/earlier) —
+        # setting Capybara.default_driver alone has no effect since that default
+        # driver's own before hook still wins once @driver is unset.
+        RSpec.configure do |config|
+          config.before(:each, type: :system) do
+            driven_by :#{driver_name}
+          end
+        end
       RUBY
+    end
+
+    # rspec:install comments out rails_helper.rb's spec/support/**/*.rb
+    # require by default, so the file above is otherwise never loaded.
+    inject_into_file "spec/rails_helper.rb", after: "RSpec.configure do |config|\n" do
+      "  require_relative \"support/system_tests\"\n"
     end
   else
     empty_directory "test/system"
