@@ -4,7 +4,55 @@
 gem "devise", "~> 5.0"
 
 after_bundle do
-  generate "devise:install"
+  # devise:install's own readme ("...manual setup may be required...") prints
+  # immediately, then gets buried under every later generator's output — by
+  # the time scaffolding finishes it's scrolled off screen. Capture it and
+  # replay it at the very end (readme_claude_md.rb) instead of suppressing it,
+  # since most of its items (mailer host, views) are already handled here but
+  # it's still a useful final sanity-check list. `generate` here shells out to
+  # a `rails generate` subprocess, so Ruby-level $stdout redirection doesn't
+  # see its output — the real STDOUT fd has to be reopened, not just $stdout.
+  require "tempfile"
+  tempfile = Tempfile.new("devise_install_output")
+  original_stdout_fd = STDOUT.dup
+  STDOUT.reopen(tempfile)
+  STDOUT.sync = true
+  generate_error = nil
+  begin
+    generate "devise:install"
+  rescue => e
+    generate_error = e
+  ensure
+    STDOUT.reopen(original_stdout_fd)
+    original_stdout_fd.close
+  end
+  tempfile.rewind
+  output = tempfile.read
+  tempfile.close
+  tempfile.unlink
+
+  # If devise:install raised, print whatever it captured before re-raising —
+  # otherwise the developer sees a bare crash with none of the "create ..."
+  # context that used to stream live to the terminal before this capture was added.
+  if generate_error
+    print output
+    raise generate_error
+  end
+
+  # devise:install's readme is boxed between two "===...=" separator lines —
+  # splitting on those lines isolates it from the "create ..." log lines
+  # around it, which print immediately as before. split's default limit
+  # drops a trailing empty string, which is exactly what's after the second
+  # separator (nothing) — pass -1 to keep it, or parts.length never reaches 3.
+  parts = output.split(/^=+[ \t]*(?:\r?\n|\z)/, -1)
+  if parts.length >= 3
+    print parts[0]
+    @devise_install_readme = parts[1].strip
+    print parts[2]
+  else
+    print output
+  end
+
   generate "devise", "User"
   generate "devise:views"
 

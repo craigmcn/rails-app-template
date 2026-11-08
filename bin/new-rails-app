@@ -6,24 +6,35 @@ require "optparse"
 TEMPLATE_ROOT = File.expand_path("..", __dir__)
 TEMPLATE_FILE = File.join(TEMPLATE_ROOT, "template.rb")
 
-options = {
-  database: "postgresql",
-  css: "bootstrap",
-  javascript: "esbuild",
-  auth: "clearance",
-  test: "minitest",
-  skip_admin: false
-}
+options = {} # nil/missing means "not given on the command line" -> eligible for a prompt
 
 parser = OptionParser.new do |opts|
-  opts.banner = "Usage: new-rails-app APP_NAME [options]"
+  opts.banner = "Usage: new-rails-app [APP_NAME] [options]\n" \
+                "Any option left out is prompted for interactively (unless --no-interactive).\n\n"
 
   opts.on("--database=DB", "Any value accepted by `rails new --database` (default: postgresql)") { |v| options[:database] = v }
+  opts.on("--db-username=USER", "MySQL/trilogy only — default: root") { |v| options[:db_username] = v }
+  opts.on("--db-password=PASSWORD", "MySQL/trilogy only — default: blank") { |v| options[:db_password] = v }
   opts.on("--css=CSS", "Any value accepted by `rails new --css` (default: bootstrap)") { |v| options[:css] = v }
   opts.on("--javascript=JS", "Any value accepted by `rails new --javascript` (default: esbuild)") { |v| options[:javascript] = v }
   opts.on("--auth=AUTH", %w[clearance devise], "clearance (default) or devise") { |v| options[:auth] = v }
   opts.on("--test=TEST", %w[minitest rspec], "minitest (default) or rspec") { |v| options[:test] = v }
   opts.on("--skip-admin", "Skip the /admin namespace UI (roles/authorization scaffolding is always included)") { options[:skip_admin] = true }
+  opts.on("--bullet", "Include the Bullet N+1 query detector (default)") { options[:bullet] = true }
+  opts.on("--no-bullet", "Omit the Bullet N+1 query detector") { options[:bullet] = false }
+  opts.on("--port=PORT", Integer, "Dev server port, written to .env (default: 3000)") { |v| options[:port] = v }
+  opts.on("--active-storage", "Run the Active Storage installer (default: omitted)") { options[:active_storage] = true }
+  opts.on("--no-active-storage", "Omit Active Storage") { options[:active_storage] = false }
+  opts.on("--action-text", "Run the Action Text installer (implies --active-storage; default: omitted)") { options[:action_text] = true }
+  opts.on("--no-action-text", "Omit Action Text") { options[:action_text] = false }
+  opts.on("--rack-attack", "Add Rack::Attack with baseline throttle rules (default)") { options[:rack_attack] = true }
+  opts.on("--no-rack-attack", "Omit Rack::Attack") { options[:rack_attack] = false }
+  opts.on("--system-test-driver=DRIVER", %w[selenium cuprite], "selenium (default) or cuprite for Capybara system tests") { |v| options[:system_test_driver] = v }
+  opts.on("--pagy", "Include pagy for pagination (default)") { options[:pagy] = true }
+  opts.on("--no-pagy", "Omit pagy") { options[:pagy] = false }
+  opts.on("--annotate", "Include annotaterb (schema comments on models, default)") { options[:annotate] = true }
+  opts.on("--no-annotate", "Omit annotaterb") { options[:annotate] = false }
+  opts.on("--no-interactive", "Fail on missing options instead of prompting for them") { options[:no_interactive] = true }
   opts.on("-h", "--help", "Show this help") do
     puts opts
     exit
@@ -39,9 +50,111 @@ rescue OptionParser::ParseError => e
 end
 
 app_name = ARGV.shift
-if app_name.nil? || app_name.empty?
-  warn parser
-  exit 1
+no_interactive = options.delete(:no_interactive)
+
+def mysql_family?(database)
+  database.to_s.match?(/mysql|trilogy/)
+end
+
+DEFAULTS = {
+  database: "postgresql",
+  css: "bootstrap",
+  javascript: "esbuild",
+  auth: "clearance",
+  test: "minitest",
+  skip_admin: false,
+  bullet: true,
+  port: 3000,
+  active_storage: false,
+  action_text: false,
+  rack_attack: true,
+  system_test_driver: "selenium",
+  pagy: true,
+  annotate: true,
+  db_username: "root",
+  db_password: ""
+}.freeze
+
+if no_interactive
+  app_name = nil if app_name&.empty?
+  if app_name.nil?
+    warn "APP_NAME is required in --no-interactive mode"
+    warn parser
+    exit 1
+  end
+  DEFAULTS.each { |key, value| options[key] = value if options[key].nil? }
+
+  if options[:action_text] && !options[:active_storage]
+    warn "--action-text requires Active Storage; enabling it too."
+    options[:active_storage] = true
+  end
+else
+  require "bundler/inline"
+
+  gemfile(true, quiet: true) do
+    source "https://rubygems.org"
+    gem "tty-prompt", "~> 0.23"
+  end
+
+  prompt = TTY::Prompt.new
+
+  app_name = prompt.ask("App name:") { |q| q.required true } if app_name.nil? || app_name.empty?
+
+  options[:auth]       ||= prompt.select("Authentication:", %w[clearance devise])
+  options[:test]        ||= prompt.select("Test framework:", %w[minitest rspec])
+  options[:database]    ||= prompt.select("Database:", %w[postgresql sqlite3 mysql trilogy], default: 1)
+
+  if mysql_family?(options[:database])
+    options[:db_username] ||= prompt.ask("MySQL username:", default: DEFAULTS[:db_username])
+    options[:db_password] ||= prompt.mask("MySQL password (blank if none):", default: DEFAULTS[:db_password])
+  end
+
+  options[:css]         ||= prompt.select("CSS framework:", %w[bootstrap tailwind sass postcss bulma none])
+  options[:javascript]  ||= prompt.select("JavaScript bundler:", %w[esbuild importmap bun webpack rollup])
+  options[:skip_admin] = !prompt.yes?("Include the /admin namespace UI?", default: true) if options[:skip_admin].nil?
+  options[:bullet] = prompt.yes?("Include Bullet (N+1 query detector)?", default: true) if options[:bullet].nil?
+  options[:port] ||= prompt.ask("Dev server port:", default: DEFAULTS[:port]) { |q| q.convert(:int) }
+  options[:active_storage] = prompt.yes?("Include Active Storage (file uploads)?", default: false) if options[:active_storage].nil?
+  options[:action_text] = prompt.yes?("Include Action Text (rich text editor)?", default: false) if options[:action_text].nil?
+  options[:rack_attack] = prompt.yes?("Include Rack::Attack (request throttling)?", default: true) if options[:rack_attack].nil?
+  options[:system_test_driver] ||= prompt.select("System test driver:", %w[selenium cuprite])
+  options[:pagy] = prompt.yes?("Include pagy (pagination)?", default: true) if options[:pagy].nil?
+  options[:annotate] = prompt.yes?("Include annotaterb (schema comments on models)?", default: true) if options[:annotate].nil?
+
+  if options[:action_text] && !options[:active_storage]
+    prompt.say("Action Text requires Active Storage — enabling it too.", color: :yellow)
+    options[:active_storage] = true
+  end
+
+  summary = {
+    "App name" => app_name,
+    "Database" => mysql_family?(options[:database]) ? "#{options[:database]} (user: #{options[:db_username]})" : options[:database],
+    "Authentication" => options[:auth],
+    "Test framework" => options[:test],
+    "CSS" => options[:css],
+    "JavaScript" => options[:javascript],
+    "Dev server port" => options[:port],
+    "Admin UI (/admin)" => options[:skip_admin] ? "no" : "yes",
+    "Bullet" => options[:bullet] ? "yes" : "no",
+    "Rack::Attack" => options[:rack_attack] ? "yes" : "no",
+    "Active Storage" => options[:active_storage] ? "yes" : "no",
+    "Action Text" => options[:action_text] ? "yes" : "no",
+    "System test driver" => options[:system_test_driver],
+    "Pagy" => options[:pagy] ? "yes" : "no",
+    "annotaterb" => options[:annotate] ? "yes" : "no"
+  }
+  label_width = summary.keys.map(&:length).max
+
+  prompt.say("\nReady to scaffold:\n", color: :cyan)
+  summary.each { |label, value| prompt.say("  #{label.ljust(label_width)}  #{value}") }
+  prompt.say("")
+
+  unless prompt.yes?("Proceed?", default: true)
+    warn "Aborted."
+    exit 1
+  end
+
+  DEFAULTS.each { |key, value| options[key] = value if options[key].nil? }
 end
 
 env = {
@@ -50,7 +163,17 @@ env = {
   "SCAFFOLD_SKIP_ADMIN" => options[:skip_admin].to_s,
   "SCAFFOLD_CSS" => options[:css],
   "SCAFFOLD_JAVASCRIPT" => options[:javascript],
-  "SCAFFOLD_DATABASE" => options[:database]
+  "SCAFFOLD_DATABASE" => options[:database],
+  "SCAFFOLD_BULLET" => options[:bullet].to_s,
+  "SCAFFOLD_PORT" => options[:port].to_s,
+  "SCAFFOLD_ACTIVE_STORAGE" => options[:active_storage].to_s,
+  "SCAFFOLD_ACTION_TEXT" => options[:action_text].to_s,
+  "SCAFFOLD_RACK_ATTACK" => options[:rack_attack].to_s,
+  "SCAFFOLD_SYSTEM_TEST_DRIVER" => options[:system_test_driver],
+  "SCAFFOLD_PAGY" => options[:pagy].to_s,
+  "SCAFFOLD_ANNOTATE" => options[:annotate].to_s,
+  "SCAFFOLD_DB_USERNAME" => options[:db_username],
+  "SCAFFOLD_DB_PASSWORD" => options[:db_password]
 }
 
 cmd = [

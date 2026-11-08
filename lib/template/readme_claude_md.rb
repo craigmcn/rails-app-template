@@ -10,7 +10,16 @@ after_bundle do
   test = ENV.fetch("SCAFFOLD_TEST", "minitest")
   css = ENV.fetch("SCAFFOLD_CSS", "bootstrap")
   javascript = ENV.fetch("SCAFFOLD_JAVASCRIPT", "esbuild")
-  app_title = File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
+  port = ENV.fetch("SCAFFOLD_PORT", "3000")
+  bullet = ENV.fetch("SCAFFOLD_BULLET", "true") == "true"
+  active_storage = ENV.fetch("SCAFFOLD_ACTIVE_STORAGE", "false") == "true"
+  action_text = ENV.fetch("SCAFFOLD_ACTION_TEXT", "false") == "true"
+  rack_attack = ENV.fetch("SCAFFOLD_RACK_ATTACK", "true") == "true"
+  system_test_driver = ENV.fetch("SCAFFOLD_SYSTEM_TEST_DRIVER", "selenium")
+  pagy = ENV.fetch("SCAFFOLD_PAGY", "true") == "true"
+  annotate = ENV.fetch("SCAFFOLD_ANNOTATE", "true") == "true"
+  app_dir = File.basename(destination_root)
+  app_title = app_dir.split(/[-_]/).map(&:capitalize).join(" ")
 
   create_file "README.md", force: true do
     <<~MARKDOWN
@@ -27,7 +36,7 @@ after_bundle do
       bin/dev
       ```
 
-      ...starts the app at http://localhost:3000 by default. Set `PORT` in
+      ...starts the app at http://localhost:#{port} by default. Set `PORT` in
       `.env` (gitignored — copy from the committed `.env.sample`) to use a
       different port on this machine.
 
@@ -79,7 +88,13 @@ after_bundle do
       - **Authorization**: Pundit (policy classes) + a `roles`/`role_assignments` table (`admin` / `moderator` / `member`)
       - **CSS**: #{css}
       - **JavaScript**: #{javascript}
-      - **Testing**: #{test == "rspec" ? "RSpec + Capybara" : "Minitest + Capybara"}
+      - **Testing**: #{test == "rspec" ? "RSpec + Capybara" : "Minitest + Capybara"} (system tests via #{system_test_driver == "cuprite" ? "Cuprite" : "Selenium"})
+      #{bullet ? "- **N+1 detection**: Bullet (development only)" : ""}
+      #{pagy ? "- **Pagination**: pagy" : ""}
+      #{annotate ? "- **Schema annotations**: annotaterb (`bundle exec annotaterb models`)" : ""}
+      #{active_storage ? "- **File uploads**: Active Storage" : ""}
+      #{action_text ? "- **Rich text**: Action Text" : ""}
+      #{rack_attack ? "- **Request throttling**: Rack::Attack (`config/initializers/rack_attack.rb`)" : ""}
 
       ## Setup
 
@@ -99,7 +114,7 @@ after_bundle do
 
       ## Port
 
-      The dev server binds to port 3000 by default. To use a different port
+      The dev server binds to port #{port} by default. To use a different port
       on this machine, set `PORT` in `.env` (gitignored — copy from
       `.env.sample`, which is the committed template). `bin/dev` and the
       development mailer's `default_url_options` both read it from there.
@@ -141,13 +156,17 @@ after_bundle do
     MARKDOWN
   end
 
+  # rails new runs in the directory it was invoked from, not inside the new
+  # app dir — the caller's shell is still in the parent, so bin/dev needs a
+  # cd first even though the generator process itself has already chdir'd.
   if @db_prepare_succeeded
     say <<~MESSAGE, :green
       #{app_title} is ready.
 
+          cd #{app_dir}
           bin/dev
 
-      ...starts the app at http://localhost:3000 (set PORT in .env to use a
+      ...starts the app at http://localhost:#{port} (set PORT in .env to use a
       different port on this machine — see .env.sample).
     MESSAGE
   else
@@ -156,9 +175,10 @@ after_bundle do
       first (see the red message above and README.md > Troubleshooting),
       then run:
 
+          cd #{app_dir}
           bin/dev
 
-      ...to start the app at http://localhost:3000 (set PORT in .env to use
+      ...to start the app at http://localhost:#{port} (set PORT in .env to use
       a different port on this machine — see .env.sample).
     MESSAGE
   end
@@ -172,5 +192,11 @@ after_bundle do
       there, config/environments/production.rb falls back to "example.com"
       for confirmation/password-reset email links.
     MESSAGE
+
+    # Deferred from devise:install above so it's the last thing printed,
+    # not buried under every subsequent generator's output.
+    if @devise_install_readme
+      say "\n#{@devise_install_readme}", :yellow
+    end
   end
 end
