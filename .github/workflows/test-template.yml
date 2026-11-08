@@ -81,6 +81,7 @@ jobs:
       - name: Scaffold app (${{ matrix.name }})
         run: >-
           rails-app-template/bin/new-rails-app scaffold_app
+          --no-interactive
           --database=${{ matrix.database }}
           ${{ matrix.extra_args }}
 
