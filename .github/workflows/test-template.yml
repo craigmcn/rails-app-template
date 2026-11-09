@@ -7,12 +7,14 @@ name: Test template
 # (the specific check that would have caught the lib/generators eager-load
 # crash — see #12), and passes its own generated test suite.
 #
-# All matrix legs use --database=sqlite3 except "defaults", which uses the
-# real default (postgresql) via the postgres service below — that's the
-# combination db_create.rb exists for (Clearance's/Devise's install
-# generators query the database directly while generating). Other database
-# adapters (mysql/trilogy/mariadb), and other --css/--javascript values, are
-# intentionally not covered here — see #13.
+# All matrix legs use --database=sqlite3 except "defaults" (postgresql, via
+# the postgres service below) and "mysql-devise" (trilogy, via the mysql
+# service below) — those are the combinations db_create.rb/db_credentials.rb
+# exist for (Clearance's/Devise's install generators query the database
+# directly while generating, and a non-default username/password needs
+# config/database.yml patched before that happens). mariadb, and the
+# bun/rollup JS bundlers and postcss/bulma CSS values, remain intentionally
+# uncovered — see #13.
 
 on:
   push:
@@ -36,6 +38,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: "p@ss:word#1"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -pp@ss:word#1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     strategy:
       fail-fast: false
       matrix:
@@ -52,6 +65,17 @@ jobs:
           - name: skip-admin-importmap
             database: sqlite3
             extra_args: "--javascript=importmap --skip-admin"
+          - name: mysql-devise
+            database: trilogy
+            extra_args: >-
+              --auth=devise --db-username=root
+              --db-password=p@ss:word#1
+          - name: css-sass-fallback
+            database: sqlite3
+            extra_args: "--css=sass"
+          - name: javascript-webpack
+            database: sqlite3
+            extra_args: "--javascript=webpack"
     env:
       PGHOST: localhost
       PGUSER: postgres
