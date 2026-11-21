@@ -84,6 +84,16 @@ As its last step, the template runs `bin/rails db:prepare` (creates, migrates, a
 
 See the file comments in `lib/template/` for what each piece does.
 
+## Testing the template
+
+[`.github/workflows/test-template.yml`](.github/workflows/test-template.yml) scaffolds a set of flag combinations on every push and PR. Each app must boot in development, boot in production with eager loading, and pass its own generated test suite. Every CLI option is covered by at least one combination. The full cross-product of options is not tested, because most options don't affect each other.
+
+Some choices are not tested:
+
+- **mariadb** (`mariadb-mysql`/`mariadb-trilogy`): goes through the same credentials patch as mysql/trilogy, which is tested.
+- **bun/rollup** JavaScript bundlers and **postcss** CSS: passed straight to `rails new` and given the same unstyled views as `sass`, which is tested.
+- **System tests**: neither driver is exercised, because the scaffolded apps have no system tests to run. CI only checks that the cuprite setup installs and boots.
+
 ## Prerequisites
 
 - A running database server matching your `--database` choice (default `postgresql`). On macOS with Homebrew: `brew services start postgresql@16` (or whichever version you have installed).

@@ -12,9 +12,10 @@ name: Test template
 # service below) — those are the combinations db_create.rb/db_credentials.rb
 # exist for (Clearance's/Devise's install generators query the database
 # directly while generating, and a non-default username/password needs
-# config/database.yml patched before that happens). mariadb, and the
-# bun/rollup JS bundlers and postcss/bulma CSS values, remain intentionally
-# uncovered — see #13.
+# config/database.yml patched before that happens). Every CLI option is
+# exercised by at least one leg; the full cross-product isn't (see #13).
+# mariadb, bun/rollup and postcss are left out on purpose: our template
+# code treats them the same as mysql, esbuild/webpack and sass.
 
 on:
   push:
@@ -72,10 +73,17 @@ jobs:
               --db-password=p@ss:word#1
           - name: css-sass-fallback
             database: sqlite3
-            extra_args: "--css=sass"
+            extra_args: "--css=sass --no-pagy"
           - name: javascript-webpack
             database: sqlite3
             extra_args: "--javascript=webpack"
+          # Every non-default option in one leg. Keeps pagy on: bulma is the
+          # only --css value that loads its own pagy extra (pagy.rb).
+          - name: non-default-options
+            database: sqlite3
+            extra_args: >-
+              --css=bulma --action-text --system-test-driver=cuprite
+              --no-rack-attack --no-bullet --no-annotate --port=3999
     env:
       PGHOST: localhost
       PGUSER: postgres
@@ -108,6 +116,16 @@ jobs:
           --no-interactive
           --database=${{ matrix.database }}
           ${{ matrix.extra_args }}
+
+      # Booting alone wouldn't notice an --no-* flag or --port being ignored.
+      - name: Check non-default options took effect
+        if: matrix.name == 'non-default-options'
+        working-directory: scaffold_app
+        run: |
+          grep -qx "PORT=3999" .env
+          grep -q '"cuprite"' Gemfile
+          ! grep -qE '"(rack-attack|bullet|annotaterb)"' Gemfile
+          ls db/migrate | grep -q create_action_text_tables
 
       - name: Boot in development
         working-directory: scaffold_app
