@@ -91,8 +91,9 @@ See the file comments in `lib/template/` for what each piece does.
 Some choices are not tested:
 
 - **mariadb** (`mariadb-mysql`/`mariadb-trilogy`): goes through the same credentials patch as mysql/trilogy, which is tested.
-- **bun/rollup** JavaScript bundlers and **postcss** CSS: passed straight to `rails new` and given the same unstyled views as `sass`, which is tested.
-- **System tests**: neither driver is exercised, because the scaffolded apps have no system tests to run. CI only checks that the cuprite setup installs and boots.
+- **bun/rollup** JavaScript bundlers: passed straight to `rails new` with no template code of their own. esbuild, importmap and webpack are tested.
+- **postcss** CSS: gets the same unstyled views as `sass`, which is tested.
+- **System tests**: neither driver ever drives a browser, because the scaffolded apps have no system tests to run. The RSpec leg loads the cuprite driver setup, but nothing loads the selenium setup or the Minitest cuprite setup.
 
 ## Prerequisites
 

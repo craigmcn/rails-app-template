@@ -62,7 +62,9 @@ jobs:
             extra_args: "--auth=devise --css=tailwind"
           - name: rspec
             database: sqlite3
-            extra_args: "--test=rspec"
+            # rspec loads rails_helper (and so the driver setup) on every
+            # run, unlike minitest, so cuprite here is actually executed.
+            extra_args: "--test=rspec --system-test-driver=cuprite"
           - name: skip-admin-importmap
             database: sqlite3
             extra_args: "--javascript=importmap --skip-admin"
@@ -77,7 +79,7 @@ jobs:
           - name: javascript-webpack
             database: sqlite3
             extra_args: "--javascript=webpack"
-          # Every non-default option in one leg. Keeps pagy on: bulma is the
+          # Every option no other leg covers. Keeps pagy on: bulma is the
           # only --css value that loads its own pagy extra (pagy.rb).
           - name: non-default-options
             database: sqlite3
@@ -124,7 +126,11 @@ jobs:
         run: |
           grep -qx "PORT=3999" .env
           grep -q '"cuprite"' Gemfile
-          ! grep -qE '"(rack-attack|bullet|annotaterb)"' Gemfile
+          # `! cmd` never trips bash -e, so the negative check exits explicitly.
+          if grep -qE '"(rack-attack|bullet|annotaterb)"' Gemfile; then
+            echo "a --no-* gem is still in the Gemfile" >&2; exit 1
+          fi
+          ls db/migrate | grep -q create_active_storage_tables
           ls db/migrate | grep -q create_action_text_tables
 
       - name: Boot in development
