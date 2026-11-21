@@ -12,3 +12,9 @@ def verified_inject(file, expected_substring, message, hard_fail: false)
 
   hard_fail ? raise(message) : say(message, :red)
 end
+
+# Shared by the home pages (view_styles/*) and the shipped system test,
+# which asserts on this exact text — one definition so they can't drift.
+def app_title
+  File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
+end

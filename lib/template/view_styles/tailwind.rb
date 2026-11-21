@@ -2,7 +2,6 @@
 # Applied by template.rb when --css=tailwind.
 
 auth = ENV.fetch("SCAFFOLD_AUTH", "clearance")
-app_title = File.basename(destination_root).split(/[-_]/).map(&:capitalize).join(" ")
 
 after_bundle do
   create_file "app/controllers/home_controller.rb", force: true do
