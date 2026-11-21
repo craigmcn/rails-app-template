@@ -56,33 +56,41 @@ jobs:
         include:
           - name: defaults
             database: postgresql
+            expected_driver: selenium_headless_chrome
             extra_args: ""
           - name: devise-tailwind
             database: sqlite3
+            expected_driver: selenium_headless_chrome
             extra_args: "--auth=devise --css=tailwind"
           - name: rspec
             database: sqlite3
+            expected_driver: cuprite
             # rspec loads rails_helper (and so the driver setup) on every
             # run, unlike minitest, so cuprite here is actually executed.
             extra_args: "--test=rspec --system-test-driver=cuprite"
           - name: skip-admin-importmap
             database: sqlite3
+            expected_driver: selenium_headless_chrome
             extra_args: "--javascript=importmap --skip-admin"
           - name: mysql-devise
             database: trilogy
+            expected_driver: selenium_headless_chrome
             extra_args: >-
               --auth=devise --db-username=root
               --db-password=p@ss:word#1
           - name: css-sass-fallback
             database: sqlite3
+            expected_driver: selenium_headless_chrome
             extra_args: "--css=sass --no-pagy"
           - name: javascript-webpack
             database: sqlite3
+            expected_driver: selenium_headless_chrome
             extra_args: "--javascript=webpack"
           # Every option no other leg covers. Keeps pagy on: bulma is the
           # only --css value that loads its own pagy extra (pagy.rb).
           - name: non-default-options
             database: sqlite3
+            expected_driver: cuprite
             extra_args: >-
               --css=bulma --action-text --system-test-driver=cuprite
               --no-rack-attack --no-bullet --no-annotate --port=3999
@@ -144,11 +152,48 @@ jobs:
           SECRET_KEY_BASE: dummy
         run: bin/rails runner 'puts "production boot ok"'
 
+      # Lives here, not in the shipped home test, so apps can switch drivers
+      # without a failing test. A page that renders can't tell drivers apart.
+      - name: Add CI-only driver check
+        working-directory: scaffold_app
+        run: |
+          if [ -d spec ]; then
+            cat > spec/system/ci_driver_spec.rb <<'RUBY'
+          require "rails_helper"
+
+          RSpec.describe "CI driver check", type: :system do
+            it "runs on the chosen driver" do
+              visit root_path
+              expect(Capybara.current_driver).to eq(:${{ matrix.expected_driver }})
+            end
+          end
+          RUBY
+          else
+            cat > test/system/ci_driver_test.rb <<'RUBY'
+          require "application_system_test_case"
+
+          class CiDriverTest < ApplicationSystemTestCase
+            test "runs on the chosen driver" do
+              visit root_path
+              assert_equal :${{ matrix.expected_driver }}, Capybara.current_driver
+            end
+          end
+          RUBY
+          fi
+
       - name: Run generated test suite
         working-directory: scaffold_app
         run: |
           if [ -d spec ]; then
             bundle exec rspec
           else
-            bin/rails test
+            bin/rails test:all
           fi
+
+      - name: Upload system test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.name }}
+          path: scaffold_app/tmp/screenshots
+          if-no-files-found: ignore
