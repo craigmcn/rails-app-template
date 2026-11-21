@@ -58,6 +58,21 @@ after_bundle do
     inject_into_file "spec/rails_helper.rb", after: "RSpec.configure do |config|\n" do
       "  require_relative \"support/system_tests\"\n"
     end
+
+    # type: is explicit so it doesn't depend on rspec-rails inferring it from
+    # the spec/system path; an untyped spec would run on rack_test instead.
+    create_file "spec/system/home_spec.rb", force: true do
+      <<~RUBY
+        require "rails_helper"
+
+        RSpec.describe "Home", type: :system do
+          it "shows the app title" do
+            visit root_path
+            expect(page).to have_selector("h1", text: #{app_title.inspect})
+          end
+        end
+      RUBY
+    end
   else
     empty_directory "test/system"
 
@@ -67,6 +82,19 @@ after_bundle do
         #{driver_setup}
         class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
           driven_by :#{driver_name}
+        end
+      RUBY
+    end
+
+    create_file "test/system/home_test.rb", force: true do
+      <<~RUBY
+        require "application_system_test_case"
+
+        class HomeTest < ApplicationSystemTestCase
+          test "visiting the home page" do
+            visit root_path
+            assert_selector "h1", text: #{app_title.inspect}
+          end
         end
       RUBY
     end
