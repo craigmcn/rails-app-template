@@ -65,8 +65,8 @@ jobs:
           - name: rspec
             database: sqlite3
             expected_driver: cuprite
-            # rspec loads rails_helper (and so the driver setup) on every
-            # run, unlike minitest, so cuprite here is actually executed.
+            # RSpec + cuprite; non-default-options covers Minitest + cuprite,
+            # and the remaining legs Minitest + selenium.
             extra_args: "--test=rspec --system-test-driver=cuprite"
           - name: skip-admin-importmap
             database: sqlite3
@@ -154,7 +154,7 @@ jobs:
 
       # Lives here, not in the shipped home test, so apps can switch drivers
       # without a failing test. A page that renders can't tell drivers apart.
-      - name: Add CI-only driver check
+      - name: Check the chosen driver is in use (CI-only)
         working-directory: scaffold_app
         run: |
           if [ -d spec ]; then
@@ -179,6 +179,15 @@ jobs:
             end
           end
           RUBY
+          fi
+          # Run it on its own and require exactly one passing test: a check
+          # file the runner never picks up would otherwise pass by not running.
+          if [ -d spec ]; then
+            bundle exec rspec spec/system/ci_driver_spec.rb | tee "$RUNNER_TEMP/ci_driver.log"
+            grep -q "^1 example, 0 failures" "$RUNNER_TEMP/ci_driver.log"
+          else
+            bin/rails test test/system/ci_driver_test.rb | tee "$RUNNER_TEMP/ci_driver.log"
+            grep -qE "^1 runs, [0-9]+ assertions, 0 failures, 0 errors" "$RUNNER_TEMP/ci_driver.log"
           fi
 
       - name: Run generated test suite

@@ -19,7 +19,6 @@ after_bundle do
   pagy = ENV.fetch("SCAFFOLD_PAGY", "true") == "true"
   annotate = ENV.fetch("SCAFFOLD_ANNOTATE", "true") == "true"
   app_dir = File.basename(destination_root)
-  app_title = app_dir.split(/[-_]/).map(&:capitalize).join(" ")
 
   create_file "README.md", force: true do
     <<~MARKDOWN
