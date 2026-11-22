@@ -19,6 +19,8 @@ after_bundle do
         uses: actions/setup-node@v5
         with:
           node-version-file: .node-version
+          # Its auto-cache runs yarn before Corepack is enabled, hitting Yarn 1.
+          package-manager-cache: false
 
       - name: Enable Corepack
         run: corepack enable
