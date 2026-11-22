@@ -127,6 +127,28 @@ jobs:
           --database=${{ matrix.database }}
           ${{ matrix.extra_args }}
 
+      # The app's own ci.yml never runs here; check ci_workflow.rb adapted it.
+      # `! cmd` never trips bash -e, so negative checks exit explicitly.
+      - name: Check generated CI workflow
+        working-directory: scaffold_app
+        run: |
+          ci=.github/workflows/ci.yml
+          if [ -d spec ]; then
+            grep -qF 'run: bin/rails db:test:prepare test:prepare && bundle exec rspec --exclude-pattern "spec/system/**/*_spec.rb"' "$ci"
+            grep -qF 'run: bin/rails db:test:prepare test:prepare && bundle exec rspec spec/system' "$ci"
+            if [ -d test ]; then echo "RSpec app still has a test/ dir" >&2; exit 1; fi
+          else
+            grep -qx '        run: bin/rails db:test:prepare test' "$ci"
+          fi
+          if [ -f package.json ] && [ ! -f bun.lock ] && [ ! -f bun.lockb ]; then
+            if [ "$(grep -c 'node-version-file: .node-version' "$ci")" != 2 ]; then
+              echo "expected Node setup in both test jobs" >&2; exit 1
+            fi
+            grep -qE '"packageManager": "yarn@[2-9]' package.json
+          elif grep -q setup-node "$ci"; then
+            echo "Node setup added to an app with no package.json" >&2; exit 1
+          fi
+
       # Booting alone wouldn't notice an --no-* flag or --port being ignored.
       - name: Check non-default options took effect
         if: matrix.name == 'non-default-options'
