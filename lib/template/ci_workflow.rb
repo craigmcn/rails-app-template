@@ -22,8 +22,10 @@ after_bundle do
           # Its auto-cache runs yarn before Corepack is enabled, hitting Yarn 1.
           package-manager-cache: false
 
+      # Node 25+ no longer bundles Corepack, and .node-version is whatever
+      # Node scaffolded the app, so install it rather than rely on the image.
       - name: Enable Corepack
-        run: corepack enable
+        run: npm install -g corepack && corepack enable
 
     YAML
 
