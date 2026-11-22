@@ -144,10 +144,18 @@ jobs:
             if [ "$(grep -c 'node-version-file: .node-version' "$ci")" != 2 ]; then
               echo "expected Node setup in both test jobs" >&2; exit 1
             fi
-            grep -qE '"packageManager": "yarn@[2-9]' package.json
+            # Only a Yarn 2+ lockfile (this runner scaffolds with Yarn 1) needs it.
+            if grep -q '^__metadata:' yarn.lock; then
+              grep -qE '"packageManager": "yarn@[2-9]' package.json
+            fi
           elif grep -q setup-node "$ci"; then
             echo "Node setup added to an app with no package.json" >&2; exit 1
           fi
+
+      # The app's own CI lint job runs this; generator output must pass it too.
+      - name: Lint generated app
+        working-directory: scaffold_app
+        run: bin/rubocop
 
       # Booting alone wouldn't notice an --no-* flag or --port being ignored.
       - name: Check non-default options took effect
