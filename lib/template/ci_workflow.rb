@@ -57,9 +57,17 @@ after_bundle do
     gsub_file workflow, from, to
   end
 
-  ci_step = %(step "Tests: Rails", "bin/rails test")
+  # Like Minitest's `bin/rails test`, the main step skips system specs, which
+  # need Chrome; Rails' optional commented step is the one that runs them.
   if File.exist?("config/ci.rb")
-    verified_inject "config/ci.rb", ci_step, "ci_workflow.rb: #{ci_step.inspect} not found in config/ci.rb; RSpec not wired into bin/ci"
-    gsub_file "config/ci.rb", ci_step, %(step "Tests: RSpec", "bin/rails test:prepare && bundle exec rspec")
+    {
+      %(step "Tests: Rails", "bin/rails test"\n) =>
+        %(step "Tests: RSpec", "bin/rails test:prepare && bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb'"\n),
+      %(# step "Tests: System", "bin/rails test:system"\n) =>
+        %(# step "Tests: System", "bin/rails test:prepare && bundle exec rspec spec/system"\n)
+    }.each do |from, to|
+      verified_inject "config/ci.rb", from, "ci_workflow.rb: #{from.strip.inspect} not found in config/ci.rb; RSpec not wired into bin/ci"
+      gsub_file "config/ci.rb", from, to
+    end
   end
 end

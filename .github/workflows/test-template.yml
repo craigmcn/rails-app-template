@@ -143,6 +143,9 @@ jobs:
             grep -qF 'run: bin/rails db:test:prepare test:prepare && bundle exec rspec --exclude-pattern "spec/system/**/*_spec.rb"' "$ci"
             grep -qF 'run: bin/rails db:test:prepare test:prepare && bundle exec rspec spec/system' "$ci"
             if [ -d test ]; then echo "RSpec app still has a test/ dir" >&2; exit 1; fi
+            # bin/ci leaves system specs to its optional step, as Minitest apps do.
+            grep -qF "step \"Tests: RSpec\", \"bin/rails test:prepare && bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb'\"" config/ci.rb
+            grep -qF '# step "Tests: System", "bin/rails test:prepare && bundle exec rspec spec/system"' config/ci.rb
           else
             grep -qx '        run: bin/rails db:test:prepare test' "$ci"
           fi
