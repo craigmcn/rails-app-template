@@ -183,7 +183,6 @@ cmd = [
   "--javascript=#{options[:javascript]}",
   "-m", TEMPLATE_FILE
 ]
-cmd << "--skip-test" if options[:test] == "rspec"
 
 puts "Running: #{cmd.join(" ")}"
 exec(env, *cmd)

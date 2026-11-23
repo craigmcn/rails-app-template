@@ -1,7 +1,7 @@
 # frozen_string_literal: true
-# Applied by template.rb when SCAFFOLD_TEST=rspec. `bin/new-rails-app`
-# passes --skip-test to `rails new` in this case, so Minitest's scaffold
-# was never generated.
+# Applied by template.rb when SCAFFOLD_TEST=rspec. `rails new` runs without
+# --skip-test so Rails still generates its CI test jobs (with per-database
+# setup) and the capybara/selenium gems; the Minitest test/ dir is removed.
 
 auth = ENV.fetch("SCAFFOLD_AUTH", "clearance")
 
@@ -10,13 +10,9 @@ gem_group :development, :test do
   gem "factory_bot_rails"
 end
 
-gem_group :test do
-  gem "capybara"
-  gem "selenium-webdriver"
-end
-
 after_bundle do
   generate "rspec:install"
+  remove_dir "test"
 
   create_file "spec/factories/roles.rb", force: true do
     <<~RUBY

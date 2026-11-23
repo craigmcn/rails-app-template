@@ -95,6 +95,8 @@ Some choices are not tested:
 - **postcss** CSS: gets the same unstyled views as `sass`, which is tested.
 - **RSpec + selenium**: every app ships a home-page system test, and CI runs it with a check that the chosen driver is the one in use. That covers Minitest + selenium, Minitest + cuprite and RSpec + cuprite. RSpec + selenium uses the same RSpec setup code with only a different driver name.
 
+Each app's own generated `.github/workflows/ci.yml` is adapted to run its tests: RSpec commands for RSpec apps, and Node/Corepack setup when the app has a `package.json`. The template's CI checks that adaptation on every leg, and lints every app after a final `bin/rubocop -a`.
+
 ## Prerequisites
 
 - A running database server matching your `--database` choice (default `postgresql`). On macOS with Homebrew: `brew services start postgresql@16` (or whichever version you have installed).

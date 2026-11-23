@@ -114,8 +114,14 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Enable Corepack (Yarn 4)
-        run: corepack enable
+      # Developers scaffold with Yarn 4, which takes ci_workflow.rb's
+      # packageManager path; the image's default Yarn 1 would skip it.
+      - name: Activate Yarn 4 via Corepack
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare yarn@4.14.1 --activate
+          yarn --version
 
       - name: Install Rails
         run: gem install rails --no-document
@@ -126,6 +132,35 @@ jobs:
           --no-interactive
           --database=${{ matrix.database }}
           ${{ matrix.extra_args }}
+
+      # The app's own ci.yml never runs here; check ci_workflow.rb adapted it.
+      # `! cmd` never trips bash -e, so negative checks exit explicitly.
+      - name: Check generated CI workflow
+        working-directory: scaffold_app
+        run: |
+          ci=.github/workflows/ci.yml
+          if [ -d spec ]; then
+            grep -qF 'run: bin/rails db:test:prepare test:prepare && bundle exec rspec --exclude-pattern "spec/system/**/*_spec.rb"' "$ci"
+            grep -qF 'run: bin/rails db:test:prepare test:prepare && bundle exec rspec spec/system' "$ci"
+            if [ -d test ]; then echo "RSpec app still has a test/ dir" >&2; exit 1; fi
+          else
+            grep -qx '        run: bin/rails db:test:prepare test' "$ci"
+          fi
+          if [ -f package.json ] && [ ! -f bun.lock ] && [ ! -f bun.lockb ]; then
+            if [ "$(grep -c 'node-version-file: .node-version' "$ci")" != 2 ]; then
+              echo "expected Node setup in both test jobs" >&2; exit 1
+            fi
+            # Scaffolded with Yarn 4 (see above), so both must reflect it.
+            grep -q '^__metadata:' yarn.lock
+            grep -qE '"packageManager": "yarn@4' package.json
+          elif grep -q setup-node "$ci"; then
+            echo "Node setup added to an app with no package.json" >&2; exit 1
+          fi
+
+      # The app's own CI lint job runs this; generator output must pass it too.
+      - name: Lint generated app
+        working-directory: scaffold_app
+        run: bin/rubocop
 
       # Booting alone wouldn't notice an --no-* flag or --port being ignored.
       - name: Check non-default options took effect
