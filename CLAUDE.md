@@ -13,6 +13,10 @@ Dated write-ups of past work live in [docs/HISTORY.md](docs/HISTORY.md), which i
 - **MySQL credentials** are written into `config/database.yml` via `#to_json` so YAML-significant characters stay quoted, by `db_credentials.rb`, before `db_create.rb`.
 - **Devise's install readme** is captured by reopening the real `STDOUT` fd around `generate "devise:install"` (it's a subprocess), and printed last. The capture re-raises after printing on failure.
 - **CI must pass `--no-interactive`**: without a TTY, `TTY::Prompt` blocks forever.
+- **No repo Gemfile:** `bin/new-rails-app` loads `tty-prompt` via `bundler/inline`, only on the interactive path.
+- **Easy-to-get-wrong names:** the annotate gem is `annotaterb` (not `annotate_rb`), and `active_storage:install` is a rake task (`rails_command`), not a generator like `action_text:install`.
+- **Rack::Attack registers its own middleware** from inside its initializer, since Rails builds the stack from `config.middleware` after initializers run.
+- **Role names aren't configurable** on purpose: they're baked into generated method names (`User#admin?`, `#assign_default_role`) in `roles.rb`. Rename by hand after scaffolding.
 
 ## Key decisions
 

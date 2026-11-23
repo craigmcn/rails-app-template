@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-# Applied by template.rb after the test framework and system-test driver.
+# Applied by template.rb before rubocop.rb, which tidies what this writes.
 # Adapts the test/system-test jobs Rails generated in ci.yml rather than
 # owning them, so Rails' per-database services and env stay authoritative.
 
