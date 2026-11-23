@@ -114,8 +114,14 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Enable Corepack (Yarn 4)
-        run: corepack enable
+      # Developers scaffold with Yarn 4, which takes ci_workflow.rb's
+      # packageManager path; the image's default Yarn 1 would skip it.
+      - name: Activate Yarn 4 via Corepack
+        run: |
+          npm install -g corepack
+          corepack enable
+          corepack prepare yarn@4.14.1 --activate
+          yarn --version
 
       - name: Install Rails
         run: gem install rails --no-document
@@ -144,10 +150,9 @@ jobs:
             if [ "$(grep -c 'node-version-file: .node-version' "$ci")" != 2 ]; then
               echo "expected Node setup in both test jobs" >&2; exit 1
             fi
-            # Only a Yarn 2+ lockfile (this runner scaffolds with Yarn 1) needs it.
-            if grep -q '^__metadata:' yarn.lock; then
-              grep -qE '"packageManager": "yarn@[2-9]' package.json
-            fi
+            # Scaffolded with Yarn 4 (see above), so both must reflect it.
+            grep -q '^__metadata:' yarn.lock
+            grep -qE '"packageManager": "yarn@4' package.json
           elif grep -q setup-node "$ci"; then
             echo "Node setup added to an app with no package.json" >&2; exit 1
           fi
