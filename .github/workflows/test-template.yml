@@ -149,7 +149,7 @@ jobs:
           else
             grep -qx '        run: bin/rails db:test:prepare test' "$ci"
             grep -qx '        run: bin/rails db:test:prepare test:system' "$ci"
-            # RSpec apps rewrite these, so a Rails rename must fail somewhere.
+            # bin/ci must keep Rails' own test steps; nothing else checks them.
             grep -qx '  step "Tests: Rails", "bin/rails test"' config/ci.rb
             grep -qx '  # step "Tests: System", "bin/rails test:system"' config/ci.rb
           fi
