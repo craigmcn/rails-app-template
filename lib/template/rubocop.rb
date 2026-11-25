@@ -5,6 +5,8 @@
 
 require "open3"
 
+MAX_RUBOCOP_LINES = 50
+
 after_bundle do
   next unless File.executable?("bin/rubocop")
   next if run("bin/rubocop -a --format quiet", abort_on_failure: false)
@@ -14,7 +16,20 @@ after_bundle do
   remaining, status = Open3.capture2e("bin/rubocop", "--format", "quiet")
   next if status.success?
 
-  note_for_end <<~MESSAGE + remaining, :warnings
+  # Capped so a long list can't bury the notes after it; the full list is
+  # one bin/rubocop away, and the summary is the last line.
+  lines = remaining.lines
+  shown = remaining
+  if lines.length > MAX_RUBOCOP_LINES
+    cut = lines.length - MAX_RUBOCOP_LINES
+    kept = lines.last(MAX_RUBOCOP_LINES)
+    # Keep the "== path ==" header of the file the kept lines start inside.
+    header = lines.first(cut).reverse.find { |line| line.start_with?("== ") }
+    kept.unshift(header) if header && !kept.first.start_with?("== ")
+    shown = "(#{cut} earlier lines cut; run bin/rubocop for them)\n#{kept.join}"
+  end
+
+  note_for_end <<~MESSAGE + shown, :warnings
     bin/rubocop still fails after autocorrecting, so the app's CI lint job
     will fail on its first push. Fix these by hand, then re-run bin/rubocop:
 
