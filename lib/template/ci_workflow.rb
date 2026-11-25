@@ -23,9 +23,10 @@ after_bundle do
   if File.exist?("config/ci.rb")
     rewrites = {}
 
-    # Yarn 2 dropped `yarn audit`. Its replacement needs --recursive to cover
-    # transitive deps as Yarn 1 did; Yarn 4 also fails on mere deprecations.
-    if yarn_major >= 2
+    # Yarn 2+ has no `yarn audit`; --recursive covers transitive deps as it did,
+    # and Yarn 4 also fails on mere deprecations. --skip-javascript apps can
+    # have a package.json but no audit step, so look for one first.
+    if yarn_major >= 2 && File.read("config/ci.rb").match?(/yarn audit|Yarn vulnerability audit/)
       audit = "yarn npm audit --recursive"
       audit += " --no-deprecations" if yarn_major >= 4
       rewrites[%(step "Security: Yarn vulnerability audit", "yarn audit"\n)] =
