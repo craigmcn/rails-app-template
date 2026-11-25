@@ -11,10 +11,9 @@ after_bundle do
   # among the offences it corrected.
   remaining = run("bin/rubocop --format quiet", capture: true, verbose: false, abort_on_failure: false)
 
-  say <<~MESSAGE, :red
+  note_for_end <<~MESSAGE + remaining, :warnings
     bin/rubocop still fails after autocorrecting, so the app's CI lint job
     will fail on its first push. Fix these by hand, then re-run bin/rubocop:
 
   MESSAGE
-  say remaining, :red
 end

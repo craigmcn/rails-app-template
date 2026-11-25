@@ -5,7 +5,7 @@ gem "bcrypt", "~> 3.1.7"
 gem "clearance", "~> 2.0"
 
 after_bundle do
-  generate "clearance:install"
+  generate_deferring_readme "clearance:install"
   generate "clearance:views"
 
   create_file "app/models/user.rb", force: true do

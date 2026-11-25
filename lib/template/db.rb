@@ -13,11 +13,11 @@ after_bundle do
   @db_prepare_succeeded = rails_command("db:prepare", capture: false)
 
   unless @db_prepare_succeeded
-    say <<~MESSAGE, :red
+    note_for_end <<~MESSAGE, :warnings
       db:prepare failed — the app was scaffolded successfully, but the
-      database wasn't created/migrated/seeded (see the error above). This is
-      almost always a local database server issue, not a problem with the
-      generated app. Once the database is reachable, finish setup with:
+      database wasn't created/migrated/seeded (see its error in the output
+      above). This is almost always a local database server issue, not a
+      problem with the generated app. Once the database is reachable, finish setup with:
 
           bin/rails db:prepare
 
