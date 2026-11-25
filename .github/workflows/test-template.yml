@@ -148,14 +148,22 @@ jobs:
             grep -qF '# step "Tests: System", "bin/rails test:prepare && bundle exec rspec spec/system"' config/ci.rb
           else
             grep -qx '        run: bin/rails db:test:prepare test' "$ci"
+            grep -qx '        run: bin/rails db:test:prepare test:system' "$ci"
+            # RSpec apps rewrite these, so a Rails rename must fail somewhere.
+            grep -qx '  step "Tests: Rails", "bin/rails test"' config/ci.rb
+            grep -qx '  # step "Tests: System", "bin/rails test:system"' config/ci.rb
           fi
           if [ -f package.json ] && [ ! -f bun.lock ] && [ ! -f bun.lockb ]; then
             if [ "$(grep -c 'node-version-file: .node-version' "$ci")" != 2 ]; then
               echo "expected Node setup in both test jobs" >&2; exit 1
             fi
-            # Scaffolded with Yarn 4 (see above), so both must reflect it.
+            if [ "$(grep -c 'npm install -g corepack && corepack enable' "$ci")" != 2 ]; then
+              echo "expected Corepack in both test jobs" >&2; exit 1
+            fi
+            # Scaffolded with Yarn 4 (see above), so all three must reflect it.
             grep -q '^__metadata:' yarn.lock
             grep -qE '"packageManager": "yarn@4' package.json
+            grep -qx '  step "Security: Yarn vulnerability audit", "yarn npm audit --recursive --no-deprecations"' config/ci.rb
           elif grep -q setup-node "$ci"; then
             echo "Node setup added to an app with no package.json" >&2; exit 1
           fi

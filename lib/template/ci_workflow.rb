@@ -6,14 +6,53 @@
 require "json"
 
 after_bundle do
+  rspec = ENV.fetch("SCAFFOLD_TEST", "minitest") == "rspec"
+  node = File.exist?("package.json") && !File.exist?("bun.lock") && !File.exist?("bun.lockb")
+
+  # Rescue: backticks raise when yarn isn't on PATH, which would abort the
+  # rest of scaffolding over a version this only needs for Yarn 2+.
+  yarn_version =
+    begin
+      node ? `yarn --version`.strip : ""
+    rescue Errno::ENOENT
+      ""
+    end
+  yarn_major = yarn_version.to_i
+
+  # Before the ci.yml check below: --skip-ci leaves out ci.yml, not bin/ci.
+  if File.exist?("config/ci.rb")
+    rewrites = {}
+
+    # Yarn 2 dropped `yarn audit`. Its replacement needs --recursive to cover
+    # transitive deps as Yarn 1 did; Yarn 4 also fails on mere deprecations.
+    if yarn_major >= 2
+      audit = "yarn npm audit --recursive"
+      audit += " --no-deprecations" if yarn_major >= 4
+      rewrites[%(step "Security: Yarn vulnerability audit", "yarn audit"\n)] =
+        %(step "Security: Yarn vulnerability audit", "#{audit}"\n)
+    end
+
+    # Like Minitest's `bin/rails test`, the main step skips system specs, which
+    # need Chrome; Rails' optional commented step is the one that runs them.
+    if rspec
+      rewrites[%(step "Tests: Rails", "bin/rails test"\n)] =
+        %(step "Tests: RSpec", "bin/rails test:prepare && bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb'"\n)
+      rewrites[%(# step "Tests: System", "bin/rails test:system"\n)] =
+        %(# step "Tests: System", "bin/rails test:prepare && bundle exec rspec spec/system"\n)
+    end
+
+    rewrites.each do |from, to|
+      verified_inject "config/ci.rb", from, "ci_workflow.rb: #{from.strip.inspect} not found in config/ci.rb; bin/ci keeps Rails' default step"
+      gsub_file "config/ci.rb", from, to
+    end
+  end
+
   workflow = ".github/workflows/ci.yml"
   next unless File.exist?(workflow)
 
-  bun = File.exist?("bun.lock") || File.exist?("bun.lockb")
-
   # The runner's default yarn is 1.x, which can't read the Yarn 4 lockfile;
   # Corepack picks the version from package.json's packageManager.
-  if File.exist?("package.json") && !bun
+  if node
     node_steps = <<~YAML.gsub(/^(?=.)/, "      ")
       - name: Set up Node
         uses: actions/setup-node@v5
@@ -35,15 +74,14 @@ after_bundle do
       inject_into_file workflow, node_steps, before: anchor, force: true
     end
 
-    yarn_version = `yarn --version`.strip
-    if yarn_version.split(".").first.to_i >= 2
+    if yarn_major >= 2
       package = JSON.parse(File.read("package.json"))
       package["packageManager"] = "yarn@#{yarn_version}"
       create_file "package.json", "#{JSON.pretty_generate(package)}\n", force: true
     end
   end
 
-  next unless ENV.fetch("SCAFFOLD_TEST", "minitest") == "rspec"
+  next unless rspec
 
   # `bundle exec rspec` skips the test:prepare hook that jsbundling and
   # cssbundling use to build assets, so a fresh checkout has none without it.
@@ -55,19 +93,5 @@ after_bundle do
   }.each do |from, to|
     verified_inject workflow, from, "ci_workflow.rb: #{from.strip.inspect} not found in #{workflow}; RSpec not wired into CI"
     gsub_file workflow, from, to
-  end
-
-  # Like Minitest's `bin/rails test`, the main step skips system specs, which
-  # need Chrome; Rails' optional commented step is the one that runs them.
-  if File.exist?("config/ci.rb")
-    {
-      %(step "Tests: Rails", "bin/rails test"\n) =>
-        %(step "Tests: RSpec", "bin/rails test:prepare && bundle exec rspec --exclude-pattern 'spec/system/**/*_spec.rb'"\n),
-      %(# step "Tests: System", "bin/rails test:system"\n) =>
-        %(# step "Tests: System", "bin/rails test:prepare && bundle exec rspec spec/system"\n)
-    }.each do |from, to|
-      verified_inject "config/ci.rb", from, "ci_workflow.rb: #{from.strip.inspect} not found in config/ci.rb; RSpec not wired into bin/ci"
-      gsub_file "config/ci.rb", from, to
-    end
   end
 end
