@@ -76,7 +76,7 @@ jobs:
             database: trilogy
             expected_driver: selenium_headless_chrome
             extra_args: >-
-              --auth=devise --db-username=root
+              --auth=devise --db-username=app_user
               --db-password=p@ss:word#1
           - name: css-sass-fallback
             database: sqlite3
@@ -125,6 +125,13 @@ jobs:
 
       - name: Install Rails
         run: gem install rails --no-document
+
+      # A non-root user, so the scaffold exercises the DB_USERNAME path too.
+      - name: Create MySQL user
+        if: matrix.name == 'mysql-devise'
+        run: |
+          docker exec ${{ job.services.mysql.id }} mysql -uroot -p'p@ss:word#1' -e \
+            "CREATE USER 'app_user'@'%' IDENTIFIED BY 'p@ss:word#1'; GRANT ALL ON *.* TO 'app_user'@'%';"
 
       # shell: bash adds pipefail, so tee can't hide a failed scaffold.
       - name: Scaffold app (${{ matrix.name }})
@@ -212,16 +219,21 @@ jobs:
         if: matrix.name == 'mysql-devise'
         working-directory: scaffold_app
         run: |
+          grep -qx 'DB_USERNAME="app_user"' .env
           grep -qx 'DB_PASSWORD="p@ss:word#1"' .env
           if grep -q 'p@ss:word#1' config/database.yml; then
             echo "the MySQL password was written into config/database.yml" >&2; exit 1
           fi
           git check-ignore -q .env
           mv .env "$RUNNER_TEMP/dotenv"
-          RAILS_ENV=test bin/rails runner '
-            config = ActiveRecord::Base.connection_db_config.configuration_hash
-            abort "fallback credentials: #{config.slice(:username, :password)}" unless config[:username] == "root" && config[:password].nil?
-          '
+          # A blank DB_USERNAME (half-edited .env) must fall back to root too.
+          for username in unset ''; do
+            ( [ "$username" = unset ] || export DB_USERNAME="$username"
+              RAILS_ENV=test bin/rails runner '
+                config = ActiveRecord::Base.connection_db_config.configuration_hash
+                abort "fallback credentials: #{config.slice(:username, :password)}" unless config[:username] == "root" && config[:password].nil?
+              ' )
+          done
           mv "$RUNNER_TEMP/dotenv" .env
 
       - name: Boot in development

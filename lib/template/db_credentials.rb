@@ -1,10 +1,7 @@
 # frozen_string_literal: true
-# Applied by template.rb — after port.rb (which creates .env/.env.sample) and
-# before db_create.rb. Only touches mysql/trilogy apps: Rails' database.yml for
-# those hardcodes root with a blank password, with no OS-user fallback like
-# Postgres has. The chosen credentials go in the gitignored .env, and
-# database.yml reads them from ENV with Rails' own defaults as the fallback, so
-# the password isn't committed and Rails' generated CI (root, no password) works.
+# MySQL credentials go in the gitignored .env, and database.yml falls back to
+# Rails' root/no password, so nothing secret is committed and Rails' generated
+# CI (root, no password) still connects. Needs port.rb's .env; before db_create.
 
 DATABASE = ENV.fetch("SCAFFOLD_DATABASE", "postgresql")
 
@@ -13,7 +10,8 @@ if DATABASE.match?(/mysql|trilogy/)
   db_password = ENV.fetch("SCAFFOLD_DB_PASSWORD", "")
 
   # to_json keeps YAML-significant characters (": ", " #") in a value quoted.
-  username_line = '  username: <%= ENV.fetch("DB_USERNAME", "root").to_json %>'
+  # presence, so a blank `DB_USERNAME=` left in .env means root, not "".
+  username_line = '  username: <%= (ENV["DB_USERNAME"].presence || "root").to_json %>'
   password_line = '  password: <%= ENV["DB_PASSWORD"]&.to_json %>'
   gsub_file("config/database.yml", /^  username: root$/) { username_line }
   gsub_file("config/database.yml", /^  password:\s*$/) { password_line }
