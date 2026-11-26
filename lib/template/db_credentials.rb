@@ -1,39 +1,44 @@
 # frozen_string_literal: true
-# Applied by template.rb — before db_create.rb, since db:create (and the
-# auth generators that query the database right after it) need working
-# credentials already in config/database.yml. Only touches anything for
-# mysql/trilogy: Rails' own default database.yml for those adapters
-# hardcodes `username: root` with a blank password and no fallback to the
-# local OS user the way Postgres's trust-auth default does, so a MySQL
-# server requiring a real password (or a non-root user) fails db:create
-# immediately with no working default to fall back on. Written
-# synchronously (not after_bundle), like .yarnrc.yml above, so it's on
-# disk before db_create.rb's after_bundle block runs db:create.
+# MySQL credentials go in the gitignored .env, and database.yml falls back to
+# Rails' root/no password, so nothing secret is committed and Rails' generated
+# CI (root, no password) still connects. Needs port.rb's .env; before db_create.
 
 DATABASE = ENV.fetch("SCAFFOLD_DATABASE", "postgresql")
 
 if DATABASE.match?(/mysql|trilogy/)
-  require "json"
   db_username = ENV.fetch("SCAFFOLD_DB_USERNAME", "root")
   db_password = ENV.fetch("SCAFFOLD_DB_PASSWORD", "")
 
-  # #to_json produces a double-quoted, escaped scalar that's valid YAML as
-  # well as valid JSON, so YAML-significant characters (":", "#", leading/
-  # trailing spaces) in a real-world username/password can't break the
-  # generated config/database.yml the way raw interpolation would.
-  db_username_yaml = db_username.to_json
-  db_password_yaml = db_password.to_json
+  # to_json keeps YAML-significant characters (": ", " #") in a value quoted.
+  # presence, so a blank `DB_USERNAME=` left in .env means root, not "".
+  username_line = '  username: <%= (ENV["DB_USERNAME"].presence || "root").to_json %>'
+  password_line = '  password: <%= ENV["DB_PASSWORD"]&.to_json %>'
+  gsub_file("config/database.yml", /^  username: root$/) { username_line }
+  gsub_file("config/database.yml", /^  password:\s*$/) { password_line }
 
-  # Block form (not a plain string replacement) so a password containing
-  # "\" or "$" isn't misinterpreted as a backreference by String#gsub.
-  gsub_file("config/database.yml", /^  username: root$/) { "  username: #{db_username_yaml}" }
-  gsub_file("config/database.yml", /^  password:\s*$/) { "  password: #{db_password_yaml}" }
+  # Double quotes with these escapes read back literally in both dotenv and
+  # bin/dev's `. ./.env`; single quotes can't hold a "'" for dotenv.
+  dotenv_quote = ->(value) { "\"#{value.gsub(/[\\"$`]/) { |char| "\\#{char}" }}\"" }
+  credentials = { "DB_USERNAME" => (db_username unless db_username == "root"),
+                  "DB_PASSWORD" => (db_password unless db_password.empty?) }.compact
+  unless credentials.empty?
+    append_to_file ".env", credentials.map { |key, value| "#{key}=#{dotenv_quote.call(value)}\n" }.join
+  end
 
-  verified_inject "config/database.yml", "username: #{db_username_yaml}", <<~MESSAGE
-    Couldn't confirm config/database.yml's username was updated (the
-    expected `username: root` line wasn't found — Rails may have changed
-    its generated wording). db:create will likely fail against a MySQL
-    server that doesn't accept the default root/blank credentials. See
+  append_to_file ".env.sample", <<~ENV
+
+    # MySQL credentials for development and test. Unset, config/database.yml
+    # uses root with no password, which is what the generated CI's MySQL has.
+    # DB_USERNAME=root
+    # DB_PASSWORD=
+  ENV
+
+  # Rails writes the two lines together, so one check covers both.
+  verified_inject "config/database.yml", "#{username_line}\n#{password_line}\n", <<~MESSAGE
+    Couldn't confirm config/database.yml reads its MySQL credentials from
+    DB_USERNAME/DB_PASSWORD (Rails' `username: root` / `password:` lines
+    weren't found, so its wording may have changed). db:create will likely
+    fail against a server that needs other credentials. See
     lib/template/db_credentials.rb.
   MESSAGE
 end

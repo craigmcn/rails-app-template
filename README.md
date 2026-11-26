@@ -101,7 +101,7 @@ Each app's own generated `.github/workflows/ci.yml` is adapted to run its tests:
 
 - A running database server matching your `--database` choice (default `postgresql`). On macOS with Homebrew: `brew services start postgresql@16` (or whichever version you have installed).
 - No `username`/`password` is set in the generated `config/database.yml` for Postgres, so it connects as your local OS user over the default socket — this matches Homebrew's default (trust-auth) Postgres setup with no extra configuration.
-- For `--database=mysql`/`trilogy`, Rails' own default `config/database.yml` hardcodes `username: root` with a blank password and no local-OS-user fallback — if your MySQL server's root user needs a real password (or you'd rather connect as a different user), pass `--db-username`/`--db-password` (or answer the matching prompts) so `db:create` doesn't fail immediately.
+- For `--database=mysql`/`trilogy`, Rails' own default `config/database.yml` hardcodes `username: root` with a blank password and no local-OS-user fallback — if your MySQL server's root user needs a real password (or you'd rather connect as a different user), pass `--db-username`/`--db-password` (or answer the matching prompts) so `db:create` doesn't fail immediately. They're written to the gitignored `.env` as `DB_USERNAME`/`DB_PASSWORD`, which `config/database.yml` reads, so the password is never committed. Without them (a fresh checkout, or the generated CI), it falls back to Rails' `root` with no password.
 
 ## Troubleshooting
 
@@ -122,4 +122,5 @@ Common causes:
 | `FATAL: role "..." does not exist` | Postgres superuser/role doesn't match your OS user | Create a matching role: `createuser -s $(whoami)`, or set `PGUSER`/`username:` in `config/database.yml` |
 | `FATAL: password authentication failed` | `pg_hba.conf` requires a password but none is set | Set `PGPASSWORD`/`password:` in `config/database.yml`, or switch the local auth method to `trust`/`peer` |
 | Works for `sqlite3` but not `postgresql`/`mysql` | Only the SQLite path auto-creates a file; server-based databases need the server running first | Start the relevant server before running `bin/new-rails-app` |
-| `Access denied for user 'root'@'localhost'` (MySQL/trilogy) | The server's root user needs a password, or a different user, that `--db-username`/`--db-password` weren't given for | Re-run with the right `--db-username`/`--db-password` (or answer the prompts), or edit `config/database.yml` by hand and re-run `bin/rails db:create` |
+| MySQL connects with the wrong user or password despite `.env` | `DB_USERNAME`/`DB_PASSWORD` are already exported in your shell, and dotenv-rails never overrides existing variables (`bin/dev`'s own `. ./.env`, by contrast, does) | Unset them in the shell, or set the values you want there |
+| `Access denied for user 'root'@'localhost'` (MySQL/trilogy) | The server's root user needs a password, or a different user, that `--db-username`/`--db-password` weren't given for | Re-run with the right `--db-username`/`--db-password` (or answer the prompts), or set `DB_USERNAME`/`DB_PASSWORD` in `.env` and re-run `bin/rails db:create` |
