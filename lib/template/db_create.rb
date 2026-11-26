@@ -10,11 +10,11 @@ after_bundle do
   @db_create_succeeded = rails_command "db:create", capture: false
 
   unless @db_create_succeeded
-    say <<~MESSAGE, :red
-      db:create failed (see the error above) — the auth generators that run
-      next (Clearance/Devise) query the database directly while
-      generating, so they're likely to fail too. This is almost always a
-      local database server issue. Once the database is reachable, you can
+    note_for_end <<~MESSAGE, :warnings
+      db:create failed (see its error in the output above) — the auth
+      generators that run after it (Clearance/Devise) query the database
+      directly while generating, so they're likely to fail too. This is
+      almost always a local database server issue. Once the database is reachable, you can
       re-run this generator, or finish setup by hand with:
 
           bin/rails db:create

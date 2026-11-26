@@ -126,12 +126,31 @@ jobs:
       - name: Install Rails
         run: gem install rails --no-document
 
+      # shell: bash adds pipefail, so tee can't hide a failed scaffold.
       - name: Scaffold app (${{ matrix.name }})
+        shell: bash
         run: >-
           rails-app-template/bin/new-rails-app scaffold_app
           --no-interactive
           --database=${{ matrix.database }}
           ${{ matrix.extra_args }}
+          2>&1 | tee "$RUNNER_TEMP/scaffold.log"
+
+      # bin/rubocop is the last generator step, so notes must come after it.
+      - name: Check instructions print at the end
+        run: |
+          log="$RUNNER_TEMP/scaffold.log"
+          last_step=$(grep -nE '^ +run +bin/rubocop' "$log" | tail -1 | cut -d: -f1)
+          [ -n "$last_step" ] || { echo "no 'run bin/rubocop' line in the scaffold log" >&2; exit 1; }
+          tail -n "+$((last_step + 1))" "$log" > "$RUNNER_TEMP/tail.log"
+          for note in 'Notes from (clearance|devise):install' 'default_url_options' 'is ready\.$'; do
+            grep -qE "$note" "$RUNNER_TEMP/tail.log"
+          done
+          if head -n "$last_step" "$log" | grep -qE 'Next steps:|manual setup may be required'; then
+            echo "install notes printed mid-run" >&2; exit 1
+          fi
+          # The next command to run must be the last thing on screen.
+          tail -n 6 "$log" | grep -qE '^ +bin/dev$'
 
       # The app's own ci.yml never runs here; check ci_workflow.rb adapted it.
       # `! cmd` never trips bash -e, so negative checks exit explicitly.
