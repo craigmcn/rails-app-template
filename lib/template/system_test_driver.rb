@@ -16,11 +16,6 @@ after_bundle do
     if DRIVER == "cuprite"
       <<~RUBY
         require "capybara/cuprite"
-
-        Capybara.register_driver(:cuprite) do |app|
-          # Ferrum's 10s default is too short for Chrome's first start on a busy CI runner.
-          Capybara::Cuprite::Driver.new(app, window_size: [1400, 1400], process_timeout: 30)
-        end
       RUBY
     else
       <<~RUBY
@@ -65,7 +60,9 @@ after_bundle do
       RUBY
     end
 
-  driver_name = DRIVER == "cuprite" ? :cuprite : :selenium_headless_chrome
+  # Rails' driven_by registers :cuprite itself, replacing any driver registered under
+  # that name, so options go through it. Ferrum's 10s start timeout flaked on CI.
+  driven_by = DRIVER == "cuprite" ? "driven_by :cuprite, options: { process_timeout: 30 }" : "driven_by :selenium_headless_chrome"
 
   if TEST_FRAMEWORK == "rspec"
     create_file "spec/support/system_tests.rb", force: true do
@@ -80,7 +77,7 @@ after_bundle do
         # driver's own before hook still wins once @driver is unset.
         RSpec.configure do |config|
           config.before(:each, type: :system) do
-            driven_by :#{driver_name}
+            #{driven_by}
           end
         end
       RUBY
@@ -114,7 +111,7 @@ after_bundle do
         require "test_helper"
         #{driver_setup}
         class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
-          driven_by :#{driver_name}
+          #{driven_by}
         end
       RUBY
     end
