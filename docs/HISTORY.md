@@ -50,3 +50,8 @@ Dated write-ups of what each piece of work did and why, moved out of CLAUDE.md s
 ## Completed (2026-11-25)
 
 - Issues #54, #55, #57, #61, all follow-ups from the #51/#60 reviews of `ci_workflow.rb`. The `config/ci.rb` rewrite moved above the `ci.yml` check, so RSpec apps made with `rails new -m template.rb --skip-ci` get it too. A missing `yarn` no longer aborts scaffolding. Yarn 2+ apps' `bin/ci` audits with `yarn npm audit --recursive`: plain `yarn npm audit` checks direct dependencies only, and missed a critical transitive advisory when tried. The template CI now also checks the Minitest `test:system` and `bin/ci` test steps, Corepack in both jobs, and the audit step. `--skip-ci` and a missing `yarn` were verified by local scaffolds only, since no matrix leg covers them.
+
+## Chrome 158 system-test fixes (2026-11-25)
+
+- GitHub's runner image with Chrome 158 failed every Selenium system test in teardown: Capybara 3.40's `ChromeDriver#reset!` clears storage with origin `"*"`, which Chrome 158 rejects. Upstream has the issue (teamcapybara/capybara#2865) and an open PR (#2868), but no release. `system_test_driver.rb` now writes a version-gated patch into generated Selenium setups that follows #2868's approach. Verified on local Chrome 158 with Minitest and RSpec apps, plus a throwaway pair of tests showing cookies and localStorage don't leak between tests (that check fails if the origin clear is removed).
+- The RSpec + Cuprite leg flaked with `Ferrum::ProcessTimeoutError` (no websocket URL within 10s), on PR runs and on `main`. Generated Cuprite drivers now pass `process_timeout: 30`.

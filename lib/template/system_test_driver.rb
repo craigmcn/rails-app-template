@@ -18,7 +18,8 @@ after_bundle do
         require "capybara/cuprite"
 
         Capybara.register_driver(:cuprite) do |app|
-          Capybara::Cuprite::Driver.new(app, window_size: [1400, 1400])
+          # Ferrum's 10s default is too short for Chrome's first start on a busy CI runner.
+          Capybara::Cuprite::Driver.new(app, window_size: [1400, 1400], process_timeout: 30)
         end
       RUBY
     else
@@ -28,6 +29,38 @@ after_bundle do
         Capybara.register_driver(:selenium_headless_chrome) do |app|
           options = Selenium::WebDriver::Chrome::Options.new(args: %w[headless disable-gpu window-size=1400,1400])
           Capybara::Selenium::Driver.new(app, browser: :chrome, options: options)
+        end
+
+        # Chrome 158 rejects the "*" origin Capybara 3.40's reset! clears storage with
+        # (teamcapybara/capybara#2865). The version check turns this off once a fixed
+        # Capybara ships; delete it then.
+        if Gem::Version.new(Capybara::VERSION) <= Gem::Version.new("3.40.0")
+          require "capybara/selenium/driver"
+
+          Capybara::Selenium::Driver::ChromeDriver.prepend(Module.new do
+            def reset!
+              @origin_before_reset = origin_before_reset if @browser
+              super
+            end
+
+            private
+
+            def execute_cdp(cmd, params = {})
+              super
+            rescue Selenium::WebDriver::Error::InvalidArgumentError
+              raise unless cmd == "Storage.clearDataForOrigin" && params[:origin] == "*"
+
+              super("Network.clearBrowserCookies")
+              super(cmd, params.merge(origin: @origin_before_reset)) if @origin_before_reset
+            end
+
+            def origin_before_reset
+              url = URI(current_url)
+              url.origin if url.is_a?(URI::HTTP)
+            rescue StandardError
+              nil
+            end
+          end)
         end
       RUBY
     end

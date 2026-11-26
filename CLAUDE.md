@@ -7,6 +7,7 @@ Dated write-ups of past work live in [docs/HISTORY.md](docs/HISTORY.md), which i
 ## Non-obvious constraints
 
 - **Pins:** `gem "json", "< 3"` (json 3.x breaks ActiveSupport 8.1's encrypted-cookie decoding, so every request after the first 500s), and Pagy `~> 9.0` (v43 dropped the Backend/Frontend/extras API `pagy.rb` uses; 9.x has no `tailwind` extra). Revisit the json pin once Rails supports json 3.x.
+- **Generated Selenium setups patch Capybara 3.40's `ChromeDriver#reset!`** for Chrome 158, which rejects its `Storage.clearDataForOrigin` `"*"` origin ([capybara#2865](https://github.com/teamcapybara/capybara/issues/2865)). On that error the patch clears all cookies, then the storage of the origin the page was on before reset. It's gated on `Capybara::VERSION <= 3.40.0`; drop it from `system_test_driver.rb` once a fixed Capybara ships. Cuprite gets `process_timeout: 30`, since Ferrum's 10s default flaked on CI runners.
 - **Development Puma runs 1 thread** (`puma_dev_threads.rb`): multi-threaded dev Puma races Rails' lazy route drawing on the first concurrent requests after boot.
 - **Rails 8.1 no longer generates `test/system/`**, so `system_test_driver.rb` writes the system-test harness itself for both frameworks. For RSpec, the driver is set with a `config.before(:each, type: :system) { driven_by ... }` hook, since `rspec-rails` overrides `Capybara.default_driver`.
 - **`--action-text` implies Active Storage**, enforced in `template.rb` (`ACTIVE_STORAGE || ACTION_TEXT`), not only in the CLI.
