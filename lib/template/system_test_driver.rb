@@ -16,10 +16,6 @@ after_bundle do
     if DRIVER == "cuprite"
       <<~RUBY
         require "capybara/cuprite"
-
-        Capybara.register_driver(:cuprite) do |app|
-          Capybara::Cuprite::Driver.new(app, window_size: [1400, 1400])
-        end
       RUBY
     else
       <<~RUBY
@@ -29,10 +25,39 @@ after_bundle do
           options = Selenium::WebDriver::Chrome::Options.new(args: %w[headless disable-gpu window-size=1400,1400])
           Capybara::Selenium::Driver.new(app, browser: :chrome, options: options)
         end
+
+        # Chrome 158 rejects the "*" origin Capybara 3.40's reset! clears storage with
+        # (teamcapybara/capybara#2865). The version check turns this off once a fixed
+        # Capybara ships; delete it then.
+        if Gem::Version.new(Capybara::VERSION) <= Gem::Version.new("3.40.0")
+          require "capybara/selenium/driver"
+
+          Capybara::Selenium::Driver::ChromeDriver.prepend(Module.new do
+            private
+
+            def execute_cdp(cmd, params = {})
+              super
+            rescue Selenium::WebDriver::Error::InvalidArgumentError
+              raise unless cmd == "Storage.clearDataForOrigin" && params[:origin] == "*"
+
+              super("Network.clearBrowserCookies")
+              app_origins.each { |origin| super(cmd, params.merge(origin: origin)) }
+            end
+
+            # Chrome can only clear storage per origin, so clear the app's own. Not read
+            # from the browser: that would trip on an open alert or a second window.
+            def app_origins
+              urls = [ Capybara.current_session.server&.base_url, Capybara.app_host ].compact
+              urls.filter_map { |url| URI(url).then { |uri| uri.origin if uri.is_a?(URI::HTTP) } }.uniq
+            end
+          end)
+        end
       RUBY
     end
 
-  driver_name = DRIVER == "cuprite" ? :cuprite : :selenium_headless_chrome
+  # Rails' driven_by registers :cuprite itself, replacing any driver registered under
+  # that name, so options go through it. Ferrum's 10s start timeout flaked on CI.
+  driven_by = DRIVER == "cuprite" ? "driven_by :cuprite, options: { process_timeout: 30 }" : "driven_by :selenium_headless_chrome"
 
   if TEST_FRAMEWORK == "rspec"
     create_file "spec/support/system_tests.rb", force: true do
@@ -47,7 +72,7 @@ after_bundle do
         # driver's own before hook still wins once @driver is unset.
         RSpec.configure do |config|
           config.before(:each, type: :system) do
-            driven_by :#{driver_name}
+            #{driven_by}
           end
         end
       RUBY
@@ -81,7 +106,7 @@ after_bundle do
         require "test_helper"
         #{driver_setup}
         class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
-          driven_by :#{driver_name}
+          #{driven_by}
         end
       RUBY
     end

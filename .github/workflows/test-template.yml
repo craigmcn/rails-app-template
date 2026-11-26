@@ -218,7 +218,8 @@ jobs:
         run: bin/rails runner 'puts "production boot ok"'
 
       # Lives here, not in the shipped home test, so apps can switch drivers
-      # without a failing test. A page that renders can't tell drivers apart.
+      # without a failing test. A page that renders can't tell drivers apart,
+      # nor show that Cuprite's options survived Rails re-registering :cuprite.
       - name: Check the chosen driver is in use (CI-only)
         working-directory: scaffold_app
         run: |
@@ -230,6 +231,7 @@ jobs:
             it "runs on the chosen driver" do
               visit root_path
               expect(Capybara.current_driver).to eq(:${{ matrix.expected_driver }})
+              expect(page.driver.browser.options.process_timeout).to eq(30) if Capybara.current_driver == :cuprite
             end
           end
           RUBY
@@ -241,6 +243,7 @@ jobs:
             test "runs on the chosen driver" do
               visit root_path
               assert_equal :${{ matrix.expected_driver }}, Capybara.current_driver
+              assert_equal 30, page.driver.browser.options.process_timeout if Capybara.current_driver == :cuprite
             end
           end
           RUBY
