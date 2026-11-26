@@ -159,7 +159,7 @@ after_bundle do
   # app dir — the caller's shell is still in the parent, so bin/dev needs a
   # cd first even though the generator process itself has already chdir'd.
   if @db_prepare_succeeded
-    say <<~MESSAGE, :green
+    note_for_end <<~MESSAGE, :next_step
       #{app_title} is ready.
 
           cd #{app_dir}
@@ -169,8 +169,8 @@ after_bundle do
       different port on this machine — see .env.sample).
     MESSAGE
   else
-    say <<~MESSAGE, :yellow
-      #{app_title} was scaffolded, but db:prepare failed above — fix that
+    note_for_end <<~MESSAGE, :next_step, color: :yellow
+      #{app_title} was scaffolded, but db:prepare failed — fix that
       first (see the red message above and README.md > Troubleshooting),
       then run:
 
@@ -183,7 +183,7 @@ after_bundle do
   end
 
   if auth == "devise"
-    say <<~MESSAGE, :yellow
+    note_for_end <<~MESSAGE
       Before deploying to production: set the HOST environment variable to
       the app's real production domain, via whatever mechanism your
       production platform uses for env vars (not .env/.env.sample — those
@@ -191,11 +191,5 @@ after_bundle do
       there, config/environments/production.rb falls back to "example.com"
       for confirmation/password-reset email links.
     MESSAGE
-
-    # Deferred from devise:install above so it's the last thing printed,
-    # not buried under every subsequent generator's output.
-    if @devise_install_readme
-      say "\n#{@devise_install_readme}", :yellow
-    end
   end
 end
