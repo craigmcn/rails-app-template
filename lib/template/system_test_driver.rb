@@ -33,11 +33,6 @@ after_bundle do
           require "capybara/selenium/driver"
 
           Capybara::Selenium::Driver::ChromeDriver.prepend(Module.new do
-            def reset!
-              @origin_before_reset = origin_before_reset if @browser
-              super
-            end
-
             private
 
             def execute_cdp(cmd, params = {})
@@ -46,14 +41,14 @@ after_bundle do
               raise unless cmd == "Storage.clearDataForOrigin" && params[:origin] == "*"
 
               super("Network.clearBrowserCookies")
-              super(cmd, params.merge(origin: @origin_before_reset)) if @origin_before_reset
+              app_origins.each { |origin| super(cmd, params.merge(origin: origin)) }
             end
 
-            def origin_before_reset
-              url = URI(current_url)
-              url.origin if url.is_a?(URI::HTTP)
-            rescue StandardError
-              nil
+            # Chrome can only clear storage per origin, so clear the app's own. Not read
+            # from the browser: that would trip on an open alert or a second window.
+            def app_origins
+              urls = [ Capybara.current_session.server&.base_url, Capybara.app_host ].compact
+              urls.filter_map { |url| URI(url).then { |uri| uri.origin if uri.is_a?(URI::HTTP) } }.uniq
             end
           end)
         end
