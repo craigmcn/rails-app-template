@@ -25,8 +25,9 @@ at_exit do
   end
 end
 
-# Runs an install generator, moving its boxed readme to the end notes. The
-# generator is a subprocess, so only reopening the real STDOUT captures it.
+# Runs an install generator, moving its boxed readme to the end notes. It's a
+# subprocess, so only reopening the real STDOUT captures it. STDERR stays live so
+# errors show at once, which prints them above the replayed output.
 def generate_deferring_readme(generator)
   require "tempfile"
   captured = Tempfile.new("generator_output")

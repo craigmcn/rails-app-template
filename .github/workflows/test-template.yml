@@ -141,6 +141,7 @@ jobs:
         run: |
           log="$RUNNER_TEMP/scaffold.log"
           last_step=$(grep -nE '^ +run +bin/rubocop' "$log" | tail -1 | cut -d: -f1)
+          [ -n "$last_step" ] || { echo "no 'run bin/rubocop' line in the scaffold log" >&2; exit 1; }
           tail -n "+$((last_step + 1))" "$log" > "$RUNNER_TEMP/tail.log"
           for note in 'Notes from (clearance|devise):install' 'default_url_options' 'is ready\.$'; do
             grep -qE "$note" "$RUNNER_TEMP/tail.log"
