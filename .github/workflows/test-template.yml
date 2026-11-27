@@ -239,7 +239,7 @@ jobs:
           if grep -qE '^ +socket: /' config/database.yml; then
             echo "config/database.yml hardcodes this machine's MySQL socket" >&2; exit 1
           fi
-          grep -qxF '  socket: <%= ENV["DB_SOCKET"] %>' config/database.yml
+          grep -qxF '  socket: <%= ENV["DB_SOCKET"]&.to_json %>' config/database.yml
           mv .env "$RUNNER_TEMP/dotenv"
           # A blank DB_USERNAME (half-edited .env) must fall back to root too.
           for username in unset ''; do
@@ -247,9 +247,31 @@ jobs:
               RAILS_ENV=test bin/rails runner '
                 config = ActiveRecord::Base.connection_db_config.configuration_hash
                 abort "fallback credentials: #{config.slice(:username, :password)}" unless config[:username] == "root" && config[:password].nil?
+                abort "connection: #{config.slice(:host, :socket)}" unless config[:host] == "127.0.0.1" && config[:socket].nil?
               ' )
           done
           mv "$RUNNER_TEMP/dotenv" .env
+
+      # The leg above is trilogy. mysql2 detects the socket differently (it
+      # replaces default:'s host line), so check that shape on a bundle-free app.
+      - name: Check mysql2 database.yml drops the dummy socket
+        if: matrix.name == 'mysql-devise'
+        run: |
+          cat > "$RUNNER_TEMP/db_only.rb" <<'RUBY'
+          apply "#{ENV.fetch("LIB")}/support.rb"
+          create_file ".env", ""
+          create_file ".env.sample", ""
+          apply "#{ENV.fetch("LIB")}/db_credentials.rb"
+          RUBY
+          cd "$RUNNER_TEMP"
+          LIB="$GITHUB_WORKSPACE/rails-app-template/lib/template" SCAFFOLD_DATABASE=mysql \
+            rails new mysql2_app --database=mysql --minimal --skip-bundle --skip-git -m db_only.rb > /dev/null
+          default=$(sed -n '/^default:/,/^$/p' mysql2_app/config/database.yml)
+          if grep -qE '^ +socket: /' mysql2_app/config/database.yml; then
+            echo "mysql2 database.yml hardcodes this machine's MySQL socket" >&2; exit 1
+          fi
+          [ "$(echo "$default" | grep -cxF '  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>')" = 1 ]
+          [ "$(echo "$default" | grep -cxF '  socket: <%= ENV["DB_SOCKET"]&.to_json %>')" = 1 ]
 
       - name: Boot in development
         working-directory: scaffold_app

@@ -20,10 +20,14 @@ if DATABASE.match?(/mysql|trilogy/)
   # (trilogy) or replaces the host line (mysql2). Connect over TCP, as a
   # socket-less scaffold does, with DB_SOCKET as an opt-in for socket-only servers.
   host_line = '  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>'
-  socket_line = '  socket: <%= ENV["DB_SOCKET"] %>'
-  gsub_file("config/database.yml", %r{^ +socket: /.*\n}) { "" }
-  gsub_file("config/database.yml", /^#{Regexp.escape(host_line)}\n/) { "" }
-  gsub_file("config/database.yml", /^#{Regexp.escape(password_line)}\n/) { "#{password_line}\n#{host_line}\n#{socket_line}\n" }
+  socket_line = '  socket: <%= ENV["DB_SOCKET"]&.to_json %>'
+  # Without the password anchor there's nowhere to put host back, so keep
+  # Rails' own lines rather than strip them; the warnings below fire instead.
+  if File.read("config/database.yml").include?("#{password_line}\n")
+    gsub_file("config/database.yml", %r{^ +socket: /.*\n}) { "" }
+    gsub_file("config/database.yml", /^#{Regexp.escape(host_line)}\n/) { "" }
+    gsub_file("config/database.yml", /^#{Regexp.escape(password_line)}\n/) { "#{password_line}\n#{host_line}\n#{socket_line}\n" }
+  end
 
   # Double quotes with these escapes read back literally in both dotenv and
   # bin/dev's `. ./.env`; single quotes can't hold a "'" for dotenv.
@@ -55,6 +59,10 @@ if DATABASE.match?(/mysql|trilogy/)
     and a socket path from this machine may be hardcoded. See
     lib/template/db_credentials.rb.
   MESSAGE
+  # A reworded host line isn't removed above, and YAML keeps the last one.
+  if File.read("config/database.yml").scan(/^  host: /).size > 1
+    note_for_end "config/database.yml has more than one host: line in a block, so Rails' wording may have changed and its line may win over DB_HOST. Keep only `host: <%= ENV.fetch(\"DB_HOST\") { \"127.0.0.1\" } %>`.", :warnings
+  end
   if File.read("config/database.yml").match?(%r{^ +socket: /})
     note_for_end "config/database.yml still hardcodes a MySQL socket path from this machine, so the app's CI and other machines can't connect. Replace it with `socket: <%= ENV[\"DB_SOCKET\"] %>`.", :warnings
   end
