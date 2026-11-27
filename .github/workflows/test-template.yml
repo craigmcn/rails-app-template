@@ -135,11 +135,14 @@ jobs:
         run: gem install rails --no-document
 
       # A non-root user, so the scaffold exercises the DB_USERNAME path too.
-      - name: Create MySQL user
+      - name: Set up MySQL user and dummy socket
         if: matrix.name == 'mysql-devise'
         run: |
           docker exec ${{ job.services.mysql.id }} mysql -uroot -p'p@ss:word#1' -e \
             "CREATE USER 'app_user'@'%' IDENTIFIED BY 'p@ss:word#1'; GRANT ALL ON *.* TO 'app_user'@'%';"
+          # Rails hardcodes the first socket path that exists (here a dummy
+          # file), as on a Mac with Homebrew MySQL; db_credentials.rb must undo it.
+          touch /tmp/mysql.sock
 
       # shell: bash adds pipefail, so tee can't hide a failed scaffold.
       - name: Scaffold app (${{ matrix.name }})
@@ -233,6 +236,10 @@ jobs:
             echo "the MySQL password was written into config/database.yml" >&2; exit 1
           fi
           git check-ignore -q .env
+          if grep -qE '^ +socket: /' config/database.yml; then
+            echo "config/database.yml hardcodes this machine's MySQL socket" >&2; exit 1
+          fi
+          grep -qxF '  socket: <%= ENV["DB_SOCKET"] %>' config/database.yml
           mv .env "$RUNNER_TEMP/dotenv"
           # A blank DB_USERNAME (half-edited .env) must fall back to root too.
           for username in unset ''; do
