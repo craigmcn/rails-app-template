@@ -143,7 +143,12 @@ jobs:
         run: |
           ruby - <<'RUBY'
           help = `rails new --help`
-          allowed = ->(flag) { help[/\[--#{flag}=\w+\].*?# Possible values: ([^\n]+)/m, 1]&.split(", ") or abort "no possible values for --#{flag} in rails new --help" }
+          # Only the flag's own comment lines may sit between it and its values,
+          # so a missing list aborts here instead of reading the next flag's.
+          allowed = lambda do |flag|
+            values = help[/\[--#{flag}=\w+\][^\n]*\n(?:[ \t]+#[^\n]*\n)*?[ \t]+# Possible values: ([^\n]+)/, 1]
+            values&.split(", ") or abort "no possible values for --#{flag} in rails new --help"
+          end
           src = File.read("bin/new-rails-app", encoding: "UTF-8")
           prompts = { "database" => "Database:", "css" => "CSS framework:", "javascript" => "JavaScript bundler:" }
           bad = prompts.flat_map do |flag, label|
@@ -292,6 +297,16 @@ jobs:
           fi
           [ "$(echo "$default" | grep -cxF '  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>')" = 1 ]
           [ "$(echo "$default" | grep -cxF '  socket: <%= ENV["DB_SOCKET"]&.to_json %>')" = 1 ]
+
+      # rails new accepting the flag isn't enough: none must mean no bundler.
+      - name: Check --css=none gives plain Propshaft CSS
+        if: matrix.name == 'skip-admin-importmap'
+        working-directory: scaffold_app
+        run: |
+          if grep -qE '"(cssbundling-rails|tailwindcss-rails|dartsass-rails)"' Gemfile; then
+            echo "--css=none still installed a CSS bundler" >&2; exit 1
+          fi
+          test -f app/assets/stylesheets/application.css
 
       - name: Boot in development
         working-directory: scaffold_app

@@ -9,6 +9,7 @@ after_bundle do
   auth = ENV.fetch("SCAFFOLD_AUTH", "clearance")
   test = ENV.fetch("SCAFFOLD_TEST", "minitest")
   css = ENV.fetch("SCAFFOLD_CSS", "bootstrap")
+  css = "plain CSS (Propshaft, no bundler)" if css == "none"
   javascript = ENV.fetch("SCAFFOLD_JAVASCRIPT", "esbuild")
   port = ENV.fetch("SCAFFOLD_PORT", "3000")
   bullet = ENV.fetch("SCAFFOLD_BULLET", "true") == "true"
