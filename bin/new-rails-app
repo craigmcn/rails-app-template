@@ -15,7 +15,7 @@ parser = OptionParser.new do |opts|
   opts.on("--database=DB", "Any value accepted by `rails new --database` (default: postgresql)") { |v| options[:database] = v }
   opts.on("--db-username=USER", "MySQL/trilogy only — default: root") { |v| options[:db_username] = v }
   opts.on("--db-password=PASSWORD", "MySQL/trilogy only — default: blank") { |v| options[:db_password] = v }
-  opts.on("--css=CSS", "Any value accepted by `rails new --css` (default: bootstrap)") { |v| options[:css] = v }
+  opts.on("--css=CSS", "Any value accepted by `rails new --css`, or none for plain CSS (default: bootstrap)") { |v| options[:css] = v }
   opts.on("--javascript=JS", "Any value accepted by `rails new --javascript` (default: esbuild)") { |v| options[:javascript] = v }
   opts.on("--auth=AUTH", %w[clearance devise], "clearance (default) or devise") { |v| options[:auth] = v }
   opts.on("--test=TEST", %w[minitest rspec], "minitest (default) or rspec") { |v| options[:test] = v }
@@ -179,10 +179,11 @@ env = {
 cmd = [
   "rails", "new", app_name,
   "--database=#{options[:database]}",
-  "--css=#{options[:css]}",
+  # Rails has no --css=none: plain Propshaft CSS is what you get without --css.
+  ("--css=#{options[:css]}" unless options[:css] == "none"),
   "--javascript=#{options[:javascript]}",
   "-m", TEMPLATE_FILE
-]
+].compact
 
 puts "Running: #{cmd.join(" ")}"
 exec(env, *cmd)
