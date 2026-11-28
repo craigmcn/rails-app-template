@@ -16,6 +16,19 @@ if DATABASE.match?(/mysql|trilogy/)
   gsub_file("config/database.yml", /^  username: root$/) { username_line }
   gsub_file("config/database.yml", /^  password:\s*$/) { password_line }
 
+  # Rails hardcodes any MySQL socket on this machine, which overrides CI's host
+  # (trilogy) or replaces the host line (mysql2). Connect over TCP, as a
+  # socket-less scaffold does, with DB_SOCKET as an opt-in for socket-only servers.
+  host_line = '  host: <%= ENV.fetch("DB_HOST") { "127.0.0.1" } %>'
+  socket_line = '  socket: <%= ENV["DB_SOCKET"]&.to_json %>'
+  # Without the password anchor there's nowhere to put host back, so keep
+  # Rails' own lines rather than strip them; the warnings below fire instead.
+  if File.read("config/database.yml").include?("#{password_line}\n")
+    gsub_file("config/database.yml", %r{^ +socket: /.*\n}) { "" }
+    gsub_file("config/database.yml", /^#{Regexp.escape(host_line)}\n/) { "" }
+    gsub_file("config/database.yml", /^#{Regexp.escape(password_line)}\n/) { "#{password_line}\n#{host_line}\n#{socket_line}\n" }
+  end
+
   # Double quotes with these escapes read back literally in both dotenv and
   # bin/dev's `. ./.env`; single quotes can't hold a "'" for dotenv.
   dotenv_quote = ->(value) { "\"#{value.gsub(/[\\"$`]/) { |char| "\\#{char}" }}\"" }
@@ -31,14 +44,26 @@ if DATABASE.match?(/mysql|trilogy/)
     # uses root with no password, which is what the generated CI's MySQL has.
     # DB_USERNAME=root
     # DB_PASSWORD=
+
+    # Set only if your MySQL server has TCP turned off. --database=mysql
+    # (mysql2) also needs DB_HOST=localhost before it will use the socket.
+    # DB_SOCKET=/tmp/mysql.sock
   ENV
 
-  # Rails writes the two lines together, so one check covers both.
-  verified_inject "config/database.yml", "#{username_line}\n#{password_line}\n", <<~MESSAGE
-    Couldn't confirm config/database.yml reads its MySQL credentials from
-    DB_USERNAME/DB_PASSWORD (Rails' `username: root` / `password:` lines
-    weren't found, so its wording may have changed). db:create will likely
-    fail against a server that needs other credentials. See
+  # Rails writes these lines together in default:, so one check covers them.
+  verified_inject "config/database.yml", "#{username_line}\n#{password_line}\n#{host_line}\n#{socket_line}\n", <<~MESSAGE
+    Couldn't confirm config/database.yml reads its MySQL connection from
+    DB_USERNAME/DB_PASSWORD/DB_HOST/DB_SOCKET (Rails' `username: root` /
+    `password:` lines weren't found, so its wording may have changed).
+    db:create will likely fail against a server that needs other credentials,
+    and a socket path from this machine may be hardcoded. See
     lib/template/db_credentials.rb.
   MESSAGE
+  # A reworded host line isn't removed above, and YAML keeps the last one.
+  if File.read("config/database.yml").scan(/^  host: /).size > 1
+    note_for_end "config/database.yml has more than one host: line in a block, so Rails' wording may have changed and its line may win over DB_HOST. Keep only `host: <%= ENV.fetch(\"DB_HOST\") { \"127.0.0.1\" } %>`.", :warnings
+  end
+  if File.read("config/database.yml").match?(%r{^ +socket: /})
+    note_for_end "config/database.yml still hardcodes a MySQL socket path from this machine, so the app's CI and other machines can't connect. Replace it with `socket: <%= ENV[\"DB_SOCKET\"] %>`.", :warnings
+  end
 end
