@@ -91,6 +91,8 @@ jobs:
             database: sqlite3
             expected_driver: selenium_headless_chrome
             extra_args: "--css=sass --no-pagy"
+            # Scaffolds with no UTF-8 locale, as in cron or minimal containers (#68).
+            locale: C
           - name: javascript-webpack
             database: sqlite3
             expected_driver: selenium_headless_chrome
@@ -169,9 +171,19 @@ jobs:
           # file), as on a Mac with Homebrew MySQL; db_credentials.rb must undo it.
           touch /tmp/mysql.sock
 
-      # shell: bash adds pipefail, so tee can't hide a failed scaffold.
+      # Without this, a runner where LC_ALL=C still gave UTF-8 would test nothing.
+      - name: Check the C locale leaves Ruby without UTF-8
+        if: matrix.locale == 'C'
+        env:
+          LC_ALL: C
+        run: test "$(ruby -e 'print Encoding.default_external')" = US-ASCII
+
+      # shell: bash adds pipefail, so tee can't hide a failed scaffold. An empty
+      # LC_ALL is ignored, so legs without a locale keep the runner's C.UTF-8.
       - name: Scaffold app (${{ matrix.name }})
         shell: bash
+        env:
+          LC_ALL: ${{ matrix.locale }}
         run: >-
           rails-app-template/bin/new-rails-app scaffold_app
           --no-interactive
