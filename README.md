@@ -31,7 +31,7 @@ rails-app-template/bin/new-rails-app my_app [options]
 |---|---|---|
 | `--database` | any value `rails new --database` accepts (`sqlite3`, `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, `mariadb-trilogy`, ...) | `postgresql` |
 | `--db-username` / `--db-password` | any string — MySQL/trilogy only | `root` / blank |
-| `--css` | any value `rails new --css` accepts (`tailwind`, `bootstrap`, `bulma`, `postcss`, `sass`, ...) | `bootstrap` |
+| `--css` | any value `rails new --css` accepts (`tailwind`, `bootstrap`, `bulma`, `postcss`, `sass`, ...), or `none` for plain Propshaft CSS (`--css` is then left out of `rails new`) | `bootstrap` |
 | `--javascript` | any value `rails new --javascript` accepts (`importmap`, `bun`, `webpack`, `esbuild`, `rollup`, ...) | `esbuild` |
 | `--auth` | `clearance`, `devise` | `clearance` |
 | `--test` | `minitest`, `rspec` | `minitest` |
@@ -52,7 +52,7 @@ The interactive mode uses [tty-prompt](https://github.com/piotrmurach/tty-prompt
 
 If you used `--skip-admin` and later want CRUD UI for a given model, you don't need to regenerate the app: `rails generate scaffold_controller ModelName field:type field:type ...` (matching the model's actual fields) adds a controller and views for an existing model without touching the model or its migration.
 
-Auth/admin/CSS view styling is fully hand-tuned for the default combination (`bootstrap` + `clearance`) and for `tailwind` + `devise`; other `--css` values (`bulma`, `postcss`, `sass`, none) fall back to plain, unstyled-but-functional markup rather than framework-specific classes.
+Auth/admin/CSS view styling is fully hand-tuned for the default combination (`bootstrap` + `clearance`) and for `tailwind` + `devise`; other `--css` values (`bulma`, `postcss`, `sass`, `none`) fall back to plain, unstyled-but-functional markup rather than framework-specific classes.
 
 ### Examples
 
@@ -93,6 +93,7 @@ Some choices are not tested:
 - **mariadb** (`mariadb-mysql`/`mariadb-trilogy`): goes through the same credentials patch as mysql/trilogy, which is tested.
 - **bun/rollup** JavaScript bundlers: passed straight to `rails new` with no template code of their own. esbuild, importmap and webpack are tested.
 - **postcss** CSS: gets the same unstyled views as `sass`, which is tested.
+- **`--css=none`** is tested with importmap (the `skip-admin-importmap` leg) and gets the same unstyled views.
 - **RSpec + selenium**: every app ships a home-page system test, and CI runs it with a check that the chosen driver is the one in use. That covers Minitest + selenium, Minitest + cuprite and RSpec + cuprite. RSpec + selenium uses the same RSpec setup code with only a different driver name.
 
 Each app's own generated `.github/workflows/ci.yml` is adapted to run its tests: RSpec commands for RSpec apps, and Node/Corepack setup when the app has a `package.json`. `bin/ci` gets the same RSpec commands, and under Yarn 2+ a working audit step. The template's CI checks that adaptation on every leg, and lints every app after a final `bin/rubocop -a`.
