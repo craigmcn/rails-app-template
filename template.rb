@@ -7,6 +7,10 @@
 
 LIB = File.expand_path("lib/template", __dir__)
 
+# Thor's apply reads each module with Encoding.default_external, which a C or
+# unset locale makes US-ASCII, and the modules hold UTF-8 (em dashes, arrows).
+Encoding.default_external = Encoding::UTF_8
+
 AUTH = ENV.fetch("SCAFFOLD_AUTH", "clearance")
 TEST = ENV.fetch("SCAFFOLD_TEST", "minitest")
 SKIP_ADMIN = ENV.fetch("SCAFFOLD_SKIP_ADMIN", "false") == "true"
